@@ -10,6 +10,8 @@ namespace SecureAuthApp
     // ==========================================
     static class Program
     {
+     
+
         [STAThread]
         static void Main()
         {
@@ -18,6 +20,13 @@ namespace SecureAuthApp
 
             // Starts the application with the lockout form
             Application.Run(new LockoutAuthForm());
+
+            //ProcessStartInfo psi = new ProcessStartInfo(System.IO.Path.Combine(Environment.SystemDirectory, "taskmgr.exe"));
+            //psi.RedirectStandardOutput = false;
+            //psi.WindowStyle = ProcessWindowStyle.Hidden;
+            //psi.UseShellExecute = true;
+
+            //processTaskmgr = Process.Start(psi);
         }
     }
 
@@ -39,6 +48,7 @@ namespace SecureAuthApp
         private const int WM_KEYDOWN = 0x0100;
         private const int WM_SYSKEYDOWN = 0x0104;
 
+
         public LockoutAuthForm()
         {
             InitializeFormComponents();
@@ -47,19 +57,31 @@ namespace SecureAuthApp
 
         private void InitializeFormComponents()
         {
-            this.txtUsername = new TextBox { Location = new System.Drawing.Point(100, 50), Width = 150 };
-            this.txtPassword = new TextBox { Location = new System.Drawing.Point(100, 90), Width = 150, PasswordChar = '*' };
-            this.btnLogin = new Button { Text = "Login", Location = new System.Drawing.Point(100, 130) };
-            this.lblError = new Label { Location = new System.Drawing.Point(100, 160), AutoSize = true, ForeColor = System.Drawing.Color.Red };
+            // Create controls with widths and compute horizontal center based on ClientSize
+            int textBoxWidth = 150;
+            int textBoxHeight = 23;
+            this.txtUsername = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width - textBoxWidth) / 2, (this.ClientSize.Height - textBoxHeight) / 2), Width = textBoxWidth };
+            this.txtPassword = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width - textBoxWidth) / 2, (this.ClientSize.Height - textBoxHeight) / 2), Width = textBoxWidth, PasswordChar = '*' };
+
+            // Assume default button width ~75; you can set a specific Width if needed
+            int buttonWidth = 75;
+            this.btnLogin = new Button { Text = "Login", Location = new System.Drawing.Point((this.ClientSize.Width - buttonWidth) / 2, (this.ClientSize.Height - textBoxHeight) / 2 + 80), Width = buttonWidth };
+
+            this.lblError = new Label { Location = new System.Drawing.Point((this.ClientSize.Width - 200) / 2, (this.ClientSize.Height - textBoxHeight) / 2 + 110), AutoSize = true, ForeColor = System.Drawing.Color.Red };
 
             this.btnLogin.Click += BtnLogin_Click;
 
-            this.Controls.Add(new Label { Text = "User:", Location = new System.Drawing.Point(30, 50) });
-            this.Controls.Add(new Label { Text = "Pass:", Location = new System.Drawing.Point(30, 90) });
+            // Add textboxes/buttons first so we can position labels relative to them
             this.Controls.Add(this.txtUsername);
             this.Controls.Add(this.txtPassword);
             this.Controls.Add(this.btnLogin);
             this.Controls.Add(this.lblError);
+            this.Controls.Add(this.lblError);
+            this.Controls.Add(this.lblError);
+
+            // Place labels to the left of textboxes
+            this.Controls.Add(new Label { Text = "User:", Location = new System.Drawing.Point((this.txtUsername.Left - textBoxWidth)/2, ((this.ClientSize.Height - textBoxHeight) / 2) +50) });
+            this.Controls.Add(new Label { Text = "Password:", Location = new System.Drawing.Point((this.txtPassword.Left - textBoxWidth)/2, ((this.ClientSize.Height - textBoxHeight) / 2) +90) });
 
             this.Load += LockoutAuthForm_Load;
             this.FormClosed += LockoutAuthForm_FormClosed;
@@ -102,6 +124,11 @@ namespace SecureAuthApp
             }
         }
 
+        private class Username_records
+        {
+            public string Username { get; set; }
+            public string Password { get; set; }
+        }
         private static IntPtr SetHook(LowLevelKeyboardProc proc)
         {
             using (Process curProcess = Process.GetCurrentProcess())

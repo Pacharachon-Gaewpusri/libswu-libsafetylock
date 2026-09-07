@@ -8,23 +8,23 @@
     "net10.0-windows": []
   },
   "packageFolders": {
-    "C:\\Users\\ADMINSTRATOR\\.nuget\\packages\\": {},
+    "C:\\Users\\Library\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "G:\\All_work\\Year4Uni\\libswu-libsafetylock\\libsafetylock\\libsafetylock.csproj",
+      "projectUniqueName": "C:\\Users\\Library\\source\\repos\\libswu-libsafetylock\\libsafetylock\\libsafetylock.csproj",
       "projectName": "libsafetylock",
-      "projectPath": "G:\\All_work\\Year4Uni\\libswu-libsafetylock\\libsafetylock\\libsafetylock.csproj",
-      "packagesPath": "C:\\Users\\ADMINSTRATOR\\.nuget\\packages\\",
-      "outputPath": "G:\\All_work\\Year4Uni\\libswu-libsafetylock\\libsafetylock\\obj\\",
+      "projectPath": "C:\\Users\\Library\\source\\repos\\libswu-libsafetylock\\libsafetylock\\libsafetylock.csproj",
+      "packagesPath": "C:\\Users\\Library\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\Library\\source\\repos\\libswu-libsafetylock\\libsafetylock\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\ADMINSTRATOR\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\Library\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -33,7 +33,6 @@
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-        "C:\\Program Files\\dotnet\\library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
