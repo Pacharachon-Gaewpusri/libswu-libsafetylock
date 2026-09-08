@@ -1,10 +1,17 @@
 using System;
 using System.Diagnostics;
+using System.Net.Http.Json;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows.Forms;
+using System.Xml.Linq;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
+
+
 
 namespace SecureAuthApp
 {
+
     // ==========================================
     // 1. APPLICATION ENTRY POINT
     // ==========================================
@@ -49,10 +56,12 @@ namespace SecureAuthApp
         private const int WM_SYSKEYDOWN = 0x0104;
 
 
+        private (string Username, string Password) postData = ("admin", "why123456"); // adjust values
+
         public LockoutAuthForm()
         {
             InitializeFormComponents();
-            //ApplyLockdownSettings();
+            ApplyLockdownSettings();
         }
 
         private void InitializeFormComponents()
@@ -110,9 +119,26 @@ namespace SecureAuthApp
             UnhookWindowsHookEx(_hookID);
         }
 
-        private void BtnLogin_Click(object sender, EventArgs e)
+        private static readonly HttpClient client = new HttpClient();
+
+        static async Task<bool> SendAuthRequest((string Username, string Password) credentials)
         {
-            if (txtUsername.Text == "admin" && txtPassword.Text == "secret123")
+            string requestUrl = "https://lib.swu.ac.th/api/auth";
+            var postData = new
+            {
+                Username = credentials.Username,
+                Password = credentials.Password,
+                Action = "Authenticate"
+            };
+
+            HttpResponseMessage response = await client.PostAsJsonAsync(requestUrl, postData);
+            return response.IsSuccessStatusCode;
+        }
+        private async void BtnLogin_Click(object sender, EventArgs e)
+        {
+            var creds = (Username: txtUsername.Text, Password: txtPassword.Text);
+            bool ok = await SendAuthRequest(creds);
+            if (ok)
             {
                 UnhookWindowsHookEx(_hookID);
                 MessageBox.Show("Authenticated. System unlocked.");
@@ -122,13 +148,10 @@ namespace SecureAuthApp
             {
                 lblError.Text = "Invalid credentials.";
             }
+
+           
         }
 
-        private class Username_records
-        {
-            public string Username { get; set; }
-            public string Password { get; set; }
-        }
         private static IntPtr SetHook(LowLevelKeyboardProc proc)
         {
             using (Process curProcess = Process.GetCurrentProcess())
