@@ -52,16 +52,16 @@ namespace SecureAuthApp
         public LockoutAuthForm()
         {
             InitializeFormComponents();
-            ApplyLockdownSettings();
+            //ApplyLockdownSettings();
         }
 
         private void InitializeFormComponents()
         {
             // Create controls with widths and compute horizontal center based on ClientSize
             int textBoxWidth = 150;
-            int textBoxHeight = 23;
+            int textBoxHeight = 20;
             this.txtUsername = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width - textBoxWidth) / 2, (this.ClientSize.Height - textBoxHeight) / 2), Width = textBoxWidth };
-            this.txtPassword = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width - textBoxWidth) / 2, (this.ClientSize.Height - textBoxHeight) / 2), Width = textBoxWidth, PasswordChar = '*' };
+            this.txtPassword = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width - textBoxWidth) / 2, (this.ClientSize.Height / 2) + textBoxHeight), Width = textBoxWidth, PasswordChar = '*' };
 
             // Assume default button width ~75; you can set a specific Width if needed
             int buttonWidth = 75;
@@ -80,8 +80,8 @@ namespace SecureAuthApp
             this.Controls.Add(this.lblError);
 
             // Place labels to the left of textboxes
-            this.Controls.Add(new Label { Text = "User:", Location = new System.Drawing.Point((this.txtUsername.Left - textBoxWidth)/2, ((this.ClientSize.Height - textBoxHeight) / 2) +50) });
-            this.Controls.Add(new Label { Text = "Password:", Location = new System.Drawing.Point((this.txtPassword.Left - textBoxWidth)/2, ((this.ClientSize.Height - textBoxHeight) / 2) +90) });
+            this.Controls.Add(new Label { Text = "User:", Location = new System.Drawing.Point((this.txtUsername.Left - textBoxWidth + (this.ClientSize.Width/2)) /2 , ((this.ClientSize.Height/2) - textBoxHeight)) });
+            this.Controls.Add(new Label { Text = "Password:", Location = new System.Drawing.Point((this.txtPassword.Left - textBoxWidth + (this.ClientSize.Width/2)) /2, (this.ClientSize.Height/2) ) });
 
             this.Load += LockoutAuthForm_Load;
             this.FormClosed += LockoutAuthForm_FormClosed;
