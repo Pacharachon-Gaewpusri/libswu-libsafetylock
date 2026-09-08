@@ -60,8 +60,8 @@ namespace SecureAuthApp
             // Create controls with widths and compute horizontal center based on ClientSize
             int textBoxWidth = 150;
             int textBoxHeight = 20;
-            this.txtUsername = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width - textBoxWidth) / 2, (this.ClientSize.Height - textBoxHeight) / 2), Width = textBoxWidth };
-            this.txtPassword = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width - textBoxWidth) / 2, (this.ClientSize.Height / 2) + textBoxHeight), Width = textBoxWidth, PasswordChar = '*' };
+            this.txtUsername = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width/2), (this.ClientSize.Height - textBoxHeight ) / 2), Width = textBoxWidth };
+            this.txtPassword = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width/2), ((this.ClientSize.Height + textBoxHeight ) / 2 )+ 5), Width = textBoxWidth, PasswordChar = '*' };
 
             // Assume default button width ~75; you can set a specific Width if needed
             int buttonWidth = 75;
