@@ -30,12 +30,7 @@ namespace SecureAuthApp
             // Starts the application with the lockout form
             Application.Run(new LockoutAuthForm());
 
-            //ProcessStartInfo psi = new ProcessStartInfo(System.IO.Path.Combine(Environment.SystemDirectory, "taskmgr.exe"));
-            //psi.RedirectStandardOutput = false;
-            //psi.WindowStyle = ProcessWindowStyle.Hidden;
-            //psi.UseShellExecute = true;
-
-            //processTaskmgr = Process.Start(psi);
+            
         }
     }
 
@@ -72,8 +67,8 @@ namespace SecureAuthApp
             this.AutoScaleMode = AutoScaleMode.Dpi;
             this.StartPosition = FormStartPosition.CenterScreen;
 
-            InitializeFormComponents();
             ApplyLockdownSettings();
+            InitializeFormComponents();
         }
 
         private void InitializeFormComponents()
