@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("libsafetylock")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4cef47da6e0a7185f34fb4dd37c6b199e3fe71e2")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0e578f6ff3e991195ad26ac7cf325f1ee120b1e1")]
 [assembly: System.Reflection.AssemblyProductAttribute("libsafetylock")]
 [assembly: System.Reflection.AssemblyTitleAttribute("libsafetylock")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

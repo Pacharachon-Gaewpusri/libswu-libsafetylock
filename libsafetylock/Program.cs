@@ -61,7 +61,7 @@ namespace SecureAuthApp
         public LockoutAuthForm()
         {
             InitializeFormComponents();
-            ApplyLockdownSettings();
+            //ApplyLockdownSettings();
         }
 
         private void InitializeFormComponents()
@@ -69,12 +69,12 @@ namespace SecureAuthApp
             // Create controls with widths and compute horizontal center based on ClientSize
             int textBoxWidth = 150;
             int textBoxHeight = 20;
-            this.txtUsername = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width/2), (this.ClientSize.Height - textBoxHeight ) / 2), Width = textBoxWidth };
-            this.txtPassword = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width/2), ((this.ClientSize.Height + textBoxHeight ) / 2 )+ 5), Width = textBoxWidth, PasswordChar = '*' };
+            this.txtUsername = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width/2), (this.ClientSize.Height - textBoxHeight ) / 2), Width = textBoxWidth, AutoSize = true };
+            this.txtPassword = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width/2), (this.ClientSize.Height - textBoxHeight ) / 2 + 30), Width = textBoxWidth, PasswordChar = '*', AutoSize = true };
 
             // Assume default button width ~75; you can set a specific Width if needed
             int buttonWidth = 75;
-            this.btnLogin = new Button { Text = "Login", Location = new System.Drawing.Point((this.ClientSize.Width - buttonWidth) / 2, (this.ClientSize.Height - textBoxHeight) / 2 + 80), Width = buttonWidth };
+            this.btnLogin = new Button { Text = "Login", Location = new System.Drawing.Point((this.ClientSize.Width - buttonWidth) / 2, (this.ClientSize.Height - textBoxHeight) / 2 + 80), Width = buttonWidth, AutoSize = true };
 
             this.lblError = new Label { Location = new System.Drawing.Point((this.ClientSize.Width - 200) / 2, (this.ClientSize.Height - textBoxHeight) / 2 + 110), AutoSize = true, ForeColor = System.Drawing.Color.Red };
 
@@ -89,8 +89,8 @@ namespace SecureAuthApp
             this.Controls.Add(this.lblError);
 
             // Place labels to the left of textboxes
-            this.Controls.Add(new Label { Text = "User:", Location = new System.Drawing.Point((this.txtUsername.Left - textBoxWidth + (this.ClientSize.Width/2)) /2 , ((this.ClientSize.Height/2) - textBoxHeight)) });
-            this.Controls.Add(new Label { Text = "Password:", Location = new System.Drawing.Point((this.txtPassword.Left - textBoxWidth + (this.ClientSize.Width/2)) /2, (this.ClientSize.Height/2) ) });
+            this.Controls.Add(new Label { Text = "User:", Location = new System.Drawing.Point((this.txtUsername.Left - textBoxWidth + (this.ClientSize.Width/2)) /2 , (this.ClientSize.Height/2) ) });
+            this.Controls.Add(new Label { Text = "Password:", Location = new System.Drawing.Point((this.txtPassword.Left - textBoxWidth + (this.ClientSize.Width/2)) /2, (this.ClientSize.Height/2) + textBoxHeight) });
 
             this.Load += LockoutAuthForm_Load;
             this.FormClosed += LockoutAuthForm_FormClosed;
