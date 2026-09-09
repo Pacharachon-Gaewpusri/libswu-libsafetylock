@@ -4,6 +4,8 @@ using System.Net.Http.Json;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
+using System.Drawing;
+using System.Collections.Generic;
 using System.Xml.Linq;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
@@ -47,6 +49,10 @@ namespace SecureAuthApp
         private Button btnLogin;
         private Label lblError;
 
+        // Panel used to hold the controls so we can uniformly scale and center them
+        // Store original bounds (design-time) for each child control so we can scale from them
+        private readonly Dictionary<Control, Rectangle> _originalBounds = new();
+
         private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
         private static LowLevelKeyboardProc _proc = HookCallback;
         private static IntPtr _hookID = IntPtr.Zero;
@@ -58,28 +64,44 @@ namespace SecureAuthApp
 
         private (string Username, string Password) postData = ("admin", "why123456"); // adjust values
 
+
+
         public LockoutAuthForm()
         {
+            // Ensure DPI scaling behavior
+            this.AutoScaleMode = AutoScaleMode.Dpi;
+            this.StartPosition = FormStartPosition.CenterScreen;
+
             InitializeFormComponents();
-            //ApplyLockdownSettings();
+            ApplyLockdownSettings();
         }
 
         private void InitializeFormComponents()
         {
+            int currentWidth = this.ClientSize.Width;
+            int currentHeight = this.ClientSize.Height;
+
             // Create controls with widths and compute horizontal center based on ClientSize
-            int textBoxWidth = 150;
+            int textBoxWidth = 160;
             int textBoxHeight = 20;
-            this.txtUsername = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width/2), (this.ClientSize.Height - textBoxHeight ) / 2), Width = textBoxWidth, AutoSize = true };
-            this.txtPassword = new TextBox { Location = new System.Drawing.Point((this.ClientSize.Width/2), (this.ClientSize.Height - textBoxHeight ) / 2 + 30), Width = textBoxWidth, PasswordChar = '*', AutoSize = true };
+            this.txtUsername = new TextBox { Location = new System.Drawing.Point((currentWidth/2), (currentHeight/2) ), Width = textBoxWidth, Height= textBoxHeight, AutoSize = true };
+            this.txtPassword = new TextBox { Location = new System.Drawing.Point((currentWidth/2), (currentHeight/2) + 25), Width = textBoxWidth, Height = textBoxHeight, PasswordChar = '*', AutoSize = true };
 
             // Assume default button width ~75; you can set a specific Width if needed
             int buttonWidth = 75;
-            this.btnLogin = new Button { Text = "Login", Location = new System.Drawing.Point((this.ClientSize.Width - buttonWidth) / 2, (this.ClientSize.Height - textBoxHeight) / 2 + 80), Width = buttonWidth, AutoSize = true };
-
-            this.lblError = new Label { Location = new System.Drawing.Point((this.ClientSize.Width - 200) / 2, (this.ClientSize.Height - textBoxHeight) / 2 + 110), AutoSize = true, ForeColor = System.Drawing.Color.Red };
-
+            this.btnLogin = new Button { Text = "Login", Location = new System.Drawing.Point((currentWidth - buttonWidth) / 2, (currentHeight - textBoxHeight) / 2 + 80), Width = buttonWidth, AutoSize = true };
+            this.AcceptButton = this.btnLogin; // Pressing Enter will trigger the login button
             this.btnLogin.Click += BtnLogin_Click;
-
+            // Triggers login specifically when Enter is pressed inside the password textbox
+            this.txtPassword.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    e.SuppressKeyPress = true; // Prevents the Windows error "ding" sound
+                    this.btnLogin.PerformClick();
+                }
+            };
+            this.lblError = new Label { Location = new System.Drawing.Point((currentWidth - 200) / 2, (currentHeight - textBoxHeight) / 2 + 110), AutoSize = true, ForeColor = System.Drawing.Color.Red };
             // Add textboxes/buttons first so we can position labels relative to them
             this.Controls.Add(this.txtUsername);
             this.Controls.Add(this.txtPassword);
@@ -89,12 +111,14 @@ namespace SecureAuthApp
             this.Controls.Add(this.lblError);
 
             // Place labels to the left of textboxes
-            this.Controls.Add(new Label { Text = "User:", Location = new System.Drawing.Point((this.txtUsername.Left - textBoxWidth + (this.ClientSize.Width/2)) /2 , (this.ClientSize.Height/2) ) });
-            this.Controls.Add(new Label { Text = "Password:", Location = new System.Drawing.Point((this.txtPassword.Left - textBoxWidth + (this.ClientSize.Width/2)) /2, (this.ClientSize.Height/2) + textBoxHeight) });
+            this.Controls.Add(new Label { Text = "User:", Location = new System.Drawing.Point((currentWidth - this.txtUsername.Width) / 2, (this.txtUsername.Top) ) });
+            this.Controls.Add(new Label { Text = "Password:", Location = new System.Drawing.Point((currentWidth - this.txtPassword.Width) / 2, (this.txtPassword.Top) )});
 
             this.Load += LockoutAuthForm_Load;
             this.FormClosed += LockoutAuthForm_FormClosed;
         }
+
+
 
         private void ApplyLockdownSettings()
         {
@@ -108,10 +132,11 @@ namespace SecureAuthApp
                     e.Cancel = true;
             };
         }
-
         private void LockoutAuthForm_Load(object sender, EventArgs e)
         {
+
             _hookID = SetHook(_proc);
+
         }
 
         private void LockoutAuthForm_FormClosed(object sender, FormClosedEventArgs e)
@@ -167,7 +192,6 @@ namespace SecureAuthApp
             {
                 int vkCode = Marshal.ReadInt32(lParam);
                 Keys key = (Keys)vkCode;
-
                 if (key == Keys.LWin || key == Keys.RWin) return (IntPtr)1;
                 if ((Control.ModifierKeys & Keys.Alt) != 0 && (key == Keys.Tab || key == Keys.Escape)) return (IntPtr)1;
                 if ((Control.ModifierKeys & Keys.Control) != 0 && key == Keys.Escape) return (IntPtr)1;
