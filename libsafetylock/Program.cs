@@ -45,6 +45,7 @@ namespace SecureAuthApp
         private Button btnLogin;
         private Label lblError;
         private System.Windows.Forms.Timer _relockTimer;
+        private System.Windows.Forms.Timer _warningTimer; // Timer for 1-minute warning
 
         // Store original bounds (design-time) for each child control so we can scale from them
         private readonly Dictionary<Control, Rectangle> _originalBounds = new();
@@ -173,6 +174,17 @@ namespace SecureAuthApp
             _relockTimer = new System.Windows.Forms.Timer();
             _relockTimer.Interval = 600000; // 10 minutes in milliseconds
             _relockTimer.Tick += RelockTimer_Tick;
+
+            // 1-minute warning timer
+            _warningTimer = new System.Windows.Forms.Timer();
+            _warningTimer.Interval = 60000; // 1 minute (60,000 ms)
+            _warningTimer.Tick += WarningTimer_Tick;
+        }
+
+        private void WarningTimer_Tick(object sender, EventArgs e)
+        {
+            _warningTimer.Stop();
+            MessageBox.Show("เวลาใกล้หมด กรุณาบันทึกงานของคุณ\n Time is almost up. Please save your work.");
         }
         private void ApplyLockdownSettings()
         {
@@ -214,7 +226,7 @@ namespace SecureAuthApp
                 Username = credentials.Username,
                 Password = credentials.Password,
                 Action = "Cybercafe",
-                ip = ""
+                //ip = ""
             };
 
             HttpResponseMessage response = await client.PostAsJsonAsync(requestUrl, postData);
@@ -241,8 +253,7 @@ namespace SecureAuthApp
 
                 // Begin 10-minute countdown
                 _relockTimer.Start();
-                //After 1 minute, system sends a warning message.
-                MessageBox.Show("เวลาใกล้หมด กรุณาบันทึกงานของคุณ\n Time is almost up. Please save your work.");
+                _warningTimer.Start();// Start the 1-minute warning timer
             }
             else
             {
