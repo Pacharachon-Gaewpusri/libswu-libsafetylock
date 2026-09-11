@@ -50,6 +50,7 @@ namespace SecureAuthApp
         private Label lblError;
         private System.Windows.Forms.Timer _relockTimer;
         private System.Windows.Forms.Timer _warningTimer; // Timer for 1-minute warning
+        private bool _isStandbyMode = false;// Tracks current active layout state
 
         // Store original bounds (design-time) for each child control so we can scale from them
         private readonly Dictionary<Control, Rectangle> _originalBounds = new();
@@ -74,7 +75,7 @@ namespace SecureAuthApp
             this.StartPosition = FormStartPosition.CenterScreen;
 
             //ApplyLockdownSettings();
-            //InitializeRelockTimer();
+            InitializeRelockTimer();
             InitializeFormComponents();
 
             // Prevent user from closing window during active lockdown
@@ -99,11 +100,16 @@ namespace SecureAuthApp
             // Assume default button width ~75; you can set a specific Width if needed
 
             btnLogin = new Button { Text = "Login", AutoSize = true };
-            btnLogout = new Button { Text = "Logout", AutoSize = true, Visible = true };
-            ConfirmLogoutBtn = new Button { Text = "Proceed to Logout?", AutoSize = true, Visible = false };
-            AcceptButton = this.btnLogin; // Pressing Enter will trigger the login button
+            btnLogout = new Button { Text = "Logout", AutoSize = true, Visible = false, BackColor = Color.LightGray };
+            ConfirmLogoutBtn = new Button { Text = "Logout", AutoSize = true, Visible = false , BackColor = Color.LightGray};
+            AcceptButton = this.btnLogin;
+
+            // Pressing Enter will trigger the login button
             btnLogin.Click += BtnLogin_Click;
-            btnLogout.Click += BtnLogOut_RightClick;
+            // Add MouseDown for right-click detection
+            btnLogout.MouseDown += BtnLogOut_RightClick;
+            // Bind the confirmation button's click event so it functions when visible
+            ConfirmLogoutBtn.Click += ConfirmLogoutBtn_Click;
 
             // Triggers login specifically when Enter is pressed inside the password textbox
             this.txtPassword.KeyDown += (s, e) =>
@@ -123,9 +129,13 @@ namespace SecureAuthApp
             this.Controls.Add(txtPassword);
             this.Controls.Add(UsernameLabel);
             this.Controls.Add(PasswordLabel);
-            this.Controls.Add(btnLogout);
+
             this.Controls.Add(btnLogin);
             this.Controls.Add(lblError);
+
+
+            this.Controls.Add(btnLogout);
+            this.Controls.Add(ConfirmLogoutBtn);
 
             // Hook up resize and load events to keep panel centered
             this.Load += LockoutAuthForm_Load;
@@ -135,18 +145,35 @@ namespace SecureAuthApp
             //this.FormClosed += LockoutAuthForm_FormClosed;
 
             // Apply initial layout positioning
-            UpdateLayout();
+            AuthenticationLayout();
+  
 
         }
 
-        private void UpdateLayout()
+        private void AuthenticationLayout()
         {
+            _isStandbyMode = false;
+
+            // Restore solid background & disable transparency
+            this.TransparencyKey = Color.Empty;
+            this.BackColor = SystemColors.Control;
+
             // Query live window dimensions on demand
             int tabWidth = ClientSize.Width;
             int tabHeight = ClientSize.Height;
 
-
             if (txtUsername == null || txtPassword == null) return;
+
+            // Toggle visibilities for authentication mode
+            txtUsername.Visible = true;
+            txtPassword.Visible = true;
+            UsernameLabel.Visible = true;
+            PasswordLabel.Visible = true;
+            btnLogin.Visible = true;
+            lblError.Visible = true;
+
+            btnLogout.Visible = false;
+            ConfirmLogoutBtn.Visible = false;
 
             // Set dimensions and center textboxes relative to current window height & width
             txtUsername.Width = 160;
@@ -166,20 +193,56 @@ namespace SecureAuthApp
             btnLogin.Height = 25;
             btnLogin.Location = new Point((tabWidth - btnLogin.Width) / 2, txtPassword.Bottom + 15);
 
+            lblError.Location = new Point((tabWidth - lblError.PreferredWidth) / 2, btnLogin.Bottom + 10);
+        }
+        private void StandbyLayout()
+        {
+            _isStandbyMode = true;
+
+            this.BackColor = Color.Fuchsia;
+            this.TransparencyKey = Color.Fuchsia;
+            
+
+            // Keep form maximized & top-most so button remains anchored over all windows
+            this.FormBorderStyle = FormBorderStyle.None;
+            this.StartPosition = FormStartPosition.Manual;
+            //.Size = (120, 50);
+            this.ShowInTaskbar = false;
+
+            int tabWidth = ClientSize.Width;
+            int tabHeight = ClientSize.Height;
+
+            // Hide authentication controls
+            txtUsername.Visible = false;
+            txtPassword.Visible = false;
+            UsernameLabel.Visible = false;
+            PasswordLabel.Visible = false;
+            btnLogin.Visible = false;
+            lblError.Visible = false;
+
+            // Show standby controls
+            btnLogout.Visible = true;
+            ConfirmLogoutBtn.Visible = false; // Remains hidden until right-click
+
             btnLogout.Width = 120;
             btnLogout.Height = 25;
-            btnLogout.Location = new Point((tabWidth - ConfirmLogoutBtn.Width), tabHeight - btnLogout.Height );
+            btnLogout.Location = new Point((tabWidth - ConfirmLogoutBtn.Width), tabHeight - btnLogout.Height);
+            
 
             ConfirmLogoutBtn.Width = 120;
             ConfirmLogoutBtn.Height = 25;
             ConfirmLogoutBtn.Location = new Point((tabWidth - ConfirmLogoutBtn.Width), btnLogout.Top - btnLogout.Height);
 
-            lblError.Location = new Point((tabWidth - lblError.PreferredWidth) / 2, btnLogin.Bottom + 10);
+
+            // Add MouseDown for right-click detection
+            btnLogout.MouseDown += BtnLogOut_RightClick;
+            // Bind the confirmation button's click event so it functions when visible
+            ConfirmLogoutBtn.Click += ConfirmLogoutBtn_Click;
         }
         private void LockoutAuthForm_Resize(object sender, EventArgs e)
         {
             // Recalculate control placement whenever window size or state changes
-            UpdateLayout();
+            AuthenticationLayout();
             // Logs the current window state along with client dimensions (usable area)
             System.Diagnostics.Debug.WriteLine(
                 $"[Window Resized] State: {this.WindowState} | Width: {this.ClientSize.Width}px, Height: {this.ClientSize.Height}px"
@@ -203,6 +266,24 @@ namespace SecureAuthApp
             _warningTimer.Interval = 60000; // 1 minute (60,000 ms)
             _warningTimer.Tick += WarningTimer_Tick;
         }
+        private void RelockTimer_Tick(object sender, EventArgs e)
+        {
+            _relockTimer.Stop();
+
+            // Re-enable low-level keyboard interception
+            if (_hookID == IntPtr.Zero)
+            {
+                _hookID = SetHook(_proc);
+            }
+
+            // Restore lockdown view and force to front
+            AuthenticationLayout();
+        }
+        private void WarningTimer_Tick(object sender, EventArgs e)
+        {
+            _warningTimer.Stop();
+            MessageBox.Show("เวลาใกล้หมด กรุณาบันทึกงานของคุณ\n Time is almost up. Please save your work.");
+        }
 
         private async void BtnLogin_Click(object sender, EventArgs e)
         {
@@ -221,63 +302,55 @@ namespace SecureAuthApp
                 txtUsername.Clear();
                 txtPassword.Clear();
                 lblError.Text = "";
-                this.Hide();
 
-                // Begin 10-minute countdown
-                _relockTimer.Start();
-                _warningTimer.Start();// Start the 1-minute warning timer
+                // Switch UI to Standby Layout and start session timers
+                StandbyLayout();
+
+                // Start Timer
+                InitializeRelockTimer();
             }
             else
             {
                 lblError.Text = "Invalid credentials.";
-                UpdateLayout();
+                AuthenticationLayout();
             }
 
 
             
         }
+     
+        private async void BtnLogOut_RightClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+
+                ConfirmLogoutBtn.Visible = true;
+                ConfirmLogoutBtn.Enabled = true;
+                ConfirmLogoutBtn.BringToFront();
+            }
+        }
         private async void ConfirmLogoutBtn_Click(object sender, EventArgs e)
         {
-             MessageBox.Show("Are you sure you want to logout?", "Confirm Logout", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-            // Clear credentials and hide screen
-            txtUsername.Clear();
-            txtPassword.Clear();
-            lblError.Text = "";
-            // reset 10-minute countdown
-            _relockTimer.Stop();
-            _warningTimer.Stop();
-            _relockTimer.Dispose();
-            _warningTimer.Dispose();
-        }
-        private async void BtnLogOut_RightClick(object sender, EventArgs e)
-        {
-            if (e is MouseEventArgs { Button: MouseButtons.Right })
-            {
-                ConfirmLogoutBtn.Visible = true;
+            DialogResult result = MessageBox.Show("Are you sure you want to logout?", "Confirm Logout", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (result == DialogResult.Yes)
+            {// Clear credentials and hide screen
+                txtUsername.Clear();
+                txtPassword.Clear();
+                lblError.Text = "";
+                // reset 10-minute countdown
+                InitializeRelockTimer();
+
+                // Reactivate the keyboard hook to re-lock the system
+                if (_hookID == IntPtr.Zero)
+                {
+                    _hookID = SetHook(_proc);
+                }
+                AuthenticationLayout();
             }
-
-        }
-        private void RelockTimer_Tick(object sender, EventArgs e)
-        {
-            _relockTimer.Stop();
-
-            // Re-enable low-level keyboard interception
-            if (_hookID == IntPtr.Zero)
+            else
             {
-                _hookID = SetHook(_proc);
+                ConfirmLogoutBtn.Visible = false;
             }
-
-            // Restore lockdown view and force to front
-            ApplyLockdownSettings();
-            this.Show();
-            this.WindowState = FormWindowState.Maximized;
-            this.BringToFront();
-            this.Activate();
-        }
-        private void WarningTimer_Tick(object sender, EventArgs e)
-        {
-            _warningTimer.Stop();
-            MessageBox.Show("เวลาใกล้หมด กรุณาบันทึกงานของคุณ\n Time is almost up. Please save your work.");
         }
         private void ApplyLockdownSettings()
         {
@@ -285,11 +358,8 @@ namespace SecureAuthApp
             this.WindowState = FormWindowState.Maximized;
             this.TopMost = true;
             this.ShowInTaskbar = false;
-
-            this.FormClosing += (s, e) => {
-                if (e.CloseReason == CloseReason.UserClosing)
-                    e.Cancel = true;
-            };
+            this.BringToFront();
+            this.Activate();
         }
         private void LockoutAuthForm_Load(object sender, EventArgs e)
         {
