@@ -36,3 +36,4 @@ C:\Users\Library\source\repos\libswu-libsafetylock\libsafetylock\obj\Debug\net10
 C:\Users\Library\source\repos\libswu-libsafetylock\libsafetylock\obj\Debug\net10.0-windows\ref\libsafetylock.dll
 C:\Users\Library\source\repos\libswu-libsafetylock\libsafetylock\bin\Debug\net10.0-windows\Program.cs
 C:\Users\Library\source\repos\libswu-libsafetylock\libsafetylock\obj\Debug\net10.0-windows\libsafetylock.Properties.Resources.resources
+C:\Users\Library\source\repos\libswu-libsafetylock\libsafetylock\bin\Debug\net10.0-windows\libsafetylock.dll.config

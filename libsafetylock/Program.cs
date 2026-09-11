@@ -1,14 +1,18 @@
+using libsafetylock.Properties;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
+using System.Net;
+using System.Net.Sockets;
 using System.Net.Http.Json;
+//using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Timers;
 using System.Windows.Forms;
-using System.Drawing;
-using System.Collections.Generic;
 using System.Xml.Linq;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
-using System.Timers;
 
 
 
@@ -44,9 +48,11 @@ namespace SecureAuthApp
         private Label PasswordLabel;
         private Button btnLogin;
         private Button ConfirmLogoutBtn;
-
         private Button btnLogout;
-       
+        private Image SWUicon;
+        private Image LogoutIcon;
+        private NotifyIcon TrayNotiIcon;
+        private ContextMenuStrip trayContextMenu;
         private Label lblError;
         private System.Windows.Forms.Timer _relockTimer;
         private System.Windows.Forms.Timer _warningTimer; // Timer for 1-minute warning
@@ -97,11 +103,12 @@ namespace SecureAuthApp
             UsernameLabel = new Label { Text = "User:", AutoSize = true };
             PasswordLabel = new Label { Text = "Password:", AutoSize = true };
 
-            // Assume default button width ~75; you can set a specific Width if needed
+            SWUicon = Image.FromFile("C:\\Users\\Library\\source\\repos\\libswu-libsafetylock\\libsafetylock\\Resources\\SWUicon_resized.png");
+            LogoutIcon = Image.FromFile("C:\\Users\\Library\\source\\repos\\libswu-libsafetylock\\libsafetylock\\Resources\\logout.png");
 
             btnLogin = new Button { Text = "Login", AutoSize = true };
-            btnLogout = new Button { Text = "Logout", AutoSize = true, Visible = false, BackColor = Color.LightGray };
-            ConfirmLogoutBtn = new Button { Text = "Logout", AutoSize = true, Visible = false , BackColor = Color.LightGray};
+            btnLogout = new Button { Image = LogoutIcon, Text = "Logout",AutoSize = true, Visible = false, Enabled = true };
+            ConfirmLogoutBtn = new Button { Text = "Confirm Logout?", AutoSize = true, Visible = false , BackColor = Color.LightGray};
             AcceptButton = this.btnLogin;
 
             // Pressing Enter will trigger the login button
@@ -123,7 +130,12 @@ namespace SecureAuthApp
             };
 
             this.lblError = new Label { AutoSize = true, ForeColor = System.Drawing.Color.Red };
-            
+
+            // 1. Configure System Tray Icon & Context Menu
+            trayContextMenu = new ContextMenuStrip();
+            ToolStripMenuItem confirmLogoutMenuItem = new ToolStripMenuItem("Confirm Logout?", null, ConfirmLogoutBtn_Click);
+            trayContextMenu.Items.Add(confirmLogoutMenuItem);
+
             // Add textboxes/buttons first so we can position labels relative to them
             this.Controls.Add(txtUsername);
             this.Controls.Add(txtPassword);
@@ -199,18 +211,22 @@ namespace SecureAuthApp
         {
             _isStandbyMode = true;
 
-            this.BackColor = Color.Fuchsia;
-            this.TransparencyKey = Color.Fuchsia;
-            
+            int tabWidth = ClientSize.Width;
+            int tabHeight = ClientSize.Height;
 
             // Keep form maximized & top-most so button remains anchored over all windows
-            this.FormBorderStyle = FormBorderStyle.None;
-            this.StartPosition = FormStartPosition.Manual;
+            //this.FormBorderStyle = FormBorderStyle.None;
+
             //.Size = (120, 50);
             this.ShowInTaskbar = false;
 
-            int tabWidth = ClientSize.Width;
-            int tabHeight = ClientSize.Height;
+            TrayNotiIcon = new NotifyIcon
+            {
+                Icon = SystemIcons.Shield, // Sets system icon; update with custom icon if available
+                Text = "Secure Auth App",
+                ContextMenuStrip = trayContextMenu, // Assign right-click menu
+                Visible = false
+            };
 
             // Hide authentication controls
             txtUsername.Visible = false;
@@ -221,21 +237,17 @@ namespace SecureAuthApp
             lblError.Visible = false;
 
             // Show standby controls
-            btnLogout.Visible = true;
+            TrayNotiIcon.Visible = true;
             ConfirmLogoutBtn.Visible = false; // Remains hidden until right-click
 
-            btnLogout.Width = 120;
-            btnLogout.Height = 25;
-            btnLogout.Location = new Point((tabWidth - ConfirmLogoutBtn.Width), tabHeight - btnLogout.Height);
-            
 
             ConfirmLogoutBtn.Width = 120;
             ConfirmLogoutBtn.Height = 25;
             ConfirmLogoutBtn.Location = new Point((tabWidth - ConfirmLogoutBtn.Width), btnLogout.Top - btnLogout.Height);
 
 
-            // Add MouseDown for right-click detection
-            btnLogout.MouseDown += BtnLogOut_RightClick;
+            //// Add MouseDown for right-click detection
+            TrayNotiIcon.MouseDown += BtnLogOut_RightClick;
             // Bind the confirmation button's click event so it functions when visible
             ConfirmLogoutBtn.Click += ConfirmLogoutBtn_Click;
         }
@@ -304,6 +316,7 @@ namespace SecureAuthApp
                 lblError.Text = "";
 
                 // Switch UI to Standby Layout and start session timers
+                this.WindowState = FormWindowState.Minimized;
                 StandbyLayout();
 
                 // Start Timer
@@ -340,6 +353,11 @@ namespace SecureAuthApp
                 // reset 10-minute countdown
                 InitializeRelockTimer();
 
+                // 3. Hide tray icon and restore form view
+                TrayNotiIcon.Visible = false;
+                this.Show();
+                this.WindowState = FormWindowState.Normal;
+
                 // Reactivate the keyboard hook to re-lock the system
                 if (_hookID == IntPtr.Zero)
                 {
@@ -349,7 +367,6 @@ namespace SecureAuthApp
             }
             else
             {
-                ConfirmLogoutBtn.Visible = false;
             }
         }
         private void ApplyLockdownSettings()
@@ -389,7 +406,7 @@ namespace SecureAuthApp
                 Username = credentials.Username,
                 Password = credentials.Password,
                 Action = "Cybercafe",
-                //ip = ""
+
             };
 
             HttpResponseMessage response = await client.PostAsJsonAsync(requestUrl, postData);
