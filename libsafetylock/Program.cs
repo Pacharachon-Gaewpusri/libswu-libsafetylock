@@ -76,6 +76,7 @@ namespace SecureAuthApp
 
         public LockoutAuthForm()
         {
+
             // Ensure DPI scaling behavior
             this.AutoScaleMode = AutoScaleMode.Dpi;
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -92,7 +93,33 @@ namespace SecureAuthApp
             //Debug.WriteLine($"Form size: {ClientSize.Width}x{ClientSize.Height}");
 
         }
-
+        private static string GetLocalIPv4Address()
+        {
+            try
+            {
+                // Establishes a socket to determine the active local network interface IPv4 address
+                using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+                {
+                    socket.Connect("8.8.8.8", 65530);
+                    if (socket.LocalEndPoint is IPEndPoint endPoint)
+                    {
+                        return endPoint.Address.ToString();
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback to local hostname resolution if no active socket connection is found
+                foreach (var ip in Dns.GetHostEntry(Dns.GetHostName()).AddressList)
+                {
+                    if (ip.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        return ip.ToString();
+                    }
+                }
+            }
+            return "127.0.0.1";
+        }
         private void InitializeFormComponents()
         {
 
@@ -222,7 +249,7 @@ namespace SecureAuthApp
 
             TrayNotiIcon = new NotifyIcon
             {
-                Icon = SystemIcons.Shield, // Sets system icon; update with custom icon if available
+                Icon = Icon.FromHandle(((Bitmap)SWUicon).GetHicon()), // Sets system icon; update with custom icon if available
                 Text = "Secure Auth App",
                 ContextMenuStrip = trayContextMenu, // Assign right-click menu
                 Visible = false
@@ -406,7 +433,7 @@ namespace SecureAuthApp
                 Username = credentials.Username,
                 Password = credentials.Password,
                 Action = "Cybercafe",
-
+                ip = GetLocalIPv4Address()
             };
 
             HttpResponseMessage response = await client.PostAsJsonAsync(requestUrl, postData);
