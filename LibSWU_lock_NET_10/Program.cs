@@ -1,14 +1,17 @@
 
+using LibSWU_lock_NET_10;
+using Microsoft.VisualBasic.ApplicationServices;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Net;
-using System.Net.Sockets;
 using System.Net.Http.Json;
+using System.Net.Sockets;
 //using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading.Tasks;
 using System.Timers;
 using System.Windows.Forms;
 using System.Xml.Linq;
@@ -47,8 +50,9 @@ namespace SecureAuthApp
         private Label UsernameLabel;
         private Label PasswordLabel;
         private Button btnLogin;
+        private Button CheckTimeRemainingbtn; // Unclickable button for displaying remaining time
         private Button ConfirmLogoutBtn;
-        private Button btnLogout;
+        private Button SWUbtn;
         private Image SWUicon;
         private Image LogoutIcon;
         private NotifyIcon TrayNotiIcon;
@@ -56,8 +60,9 @@ namespace SecureAuthApp
         private Label lblError;
         private System.Windows.Forms.Timer _relockTimer;
         private System.Windows.Forms.Timer _warningTimer; // Timer for 1-minute warning
+        private System.Windows.Forms.Timer _countdownTimer; // 1-second tick timer for UI countdown
+        private DateTime _relockTargetTime; // Stores precise end time to prevent timer drift
         private bool _isStandbyMode = false;// Tracks current active layout state
-
         // Store original bounds (design-time) for each child control so we can scale from them
         private readonly Dictionary<Control, Rectangle> _originalBounds = new();
 
@@ -134,14 +139,25 @@ namespace SecureAuthApp
             LogoutIcon = Image.FromFile("C:\\Users\\Library\\source\\repos\\libswu-libsafetylock\\LibSWU_lock_NET_10\\Resources\\logout.png");
 
             btnLogin = new Button { Text = "Login", AutoSize = true };
-            btnLogout = new Button { Image = LogoutIcon, Text = "Logout", AutoSize = true, Visible = false, Enabled = true };
+            SWUbtn = new Button { Image = LogoutIcon, Text = "Logout", AutoSize = true, Visible = false, Enabled = true };
             ConfirmLogoutBtn = new Button { Text = "Confirm Logout?", AutoSize = true, Visible = false, BackColor = Color.LightGray };
+
+            CheckTimeRemainingbtn = new Button
+            {
+                Text = "Time Remaining:",
+                Enabled = false,  // Disables interaction/clicking
+                AutoSize = true,
+                Visible = false,
+                FlatStyle = FlatStyle.Flat
+            };
+
             AcceptButton = this.btnLogin;
 
             // Pressing Enter will trigger the login button
             btnLogin.Click += BtnLogin_Click;
             // Add MouseDown for right-click detection
-            btnLogout.MouseDown += BtnLogOut_RightClick;
+            SWUbtn.MouseDown += SWUbtn_RightClick;
+            CheckTimeRemainingbtn.MouseDown += CheckTimeRemainingbtn_Click;
             // Bind the confirmation button's click event so it functions when visible
             ConfirmLogoutBtn.Click += ConfirmLogoutBtn_Click;
 
@@ -173,22 +189,23 @@ namespace SecureAuthApp
             this.Controls.Add(lblError);
 
 
-            this.Controls.Add(btnLogout);
+            this.Controls.Add(SWUbtn);
+            this.Controls.Add(CheckTimeRemainingbtn); // Added countdown button to controls
             this.Controls.Add(ConfirmLogoutBtn);
 
             // Hook up resize and load events to keep panel centered
             this.Load += LockoutAuthForm_Load;
             this.Resize += LockoutAuthForm_Resize;
 
-
-            //this.FormClosed += LockoutAuthForm_FormClosed;
-
             // Apply initial layout positioning
             AuthenticationLayout();
 
-
         }
-
+        private void InitializeTimerCheckerLayout()
+        {
+            SWUicon = Image.FromFile("C:\\Users\\Library\\source\\repos\\libswu-libsafetylock\\LibSWU_lock_NET_10\\Resources\\SWUicon_resized.png");
+            CountdownTimer();
+        }
         private void AuthenticationLayout()
         {
             _isStandbyMode = false;
@@ -211,7 +228,7 @@ namespace SecureAuthApp
             btnLogin.Visible = true;
             lblError.Visible = true;
 
-            btnLogout.Visible = false;
+            SWUbtn.Visible = false;
             ConfirmLogoutBtn.Visible = false;
 
             // Set dimensions and center textboxes relative to current window height & width
@@ -233,6 +250,9 @@ namespace SecureAuthApp
             btnLogin.Location = new Point((tabWidth - btnLogin.Width) / 2, txtPassword.Bottom + 15);
 
             lblError.Location = new Point((tabWidth - lblError.PreferredWidth) / 2, btnLogin.Bottom + 10);
+
+            this.BringToFront();
+            this.Activate();
         }
         private void StandbyLayout()
         {
@@ -241,10 +261,6 @@ namespace SecureAuthApp
             int tabWidth = ClientSize.Width;
             int tabHeight = ClientSize.Height;
 
-            // Keep form maximized & top-most so button remains anchored over all windows
-            //this.FormBorderStyle = FormBorderStyle.None;
-
-            //.Size = (120, 50);
             this.ShowInTaskbar = false;
 
             TrayNotiIcon = new NotifyIcon
@@ -265,18 +281,35 @@ namespace SecureAuthApp
 
             // Show standby controls
             TrayNotiIcon.Visible = true;
+
+            // Make unclickable countdown button visible and position it
+            CheckTimeRemainingbtn.Visible = false;
+            CheckTimeRemainingbtn.Location = new Point((tabWidth - ConfirmLogoutBtn.Width) / 2, SWUbtn.Top -(2* SWUbtn.Height));
+
             ConfirmLogoutBtn.Visible = false; // Remains hidden until right-click
-
-
             ConfirmLogoutBtn.Width = 120;
             ConfirmLogoutBtn.Height = 25;
-            ConfirmLogoutBtn.Location = new Point((tabWidth - ConfirmLogoutBtn.Width), btnLogout.Top - btnLogout.Height);
-
+            ConfirmLogoutBtn.Location = new Point((tabWidth - ConfirmLogoutBtn.Width), SWUbtn.Top - SWUbtn.Height);
 
             //// Add MouseDown for right-click detection
-            TrayNotiIcon.MouseDown += BtnLogOut_RightClick;
+            TrayNotiIcon.MouseDown += SWUbtn_RightClick;
             // Bind the confirmation button's click event so it functions when visible
             ConfirmLogoutBtn.Click += ConfirmLogoutBtn_Click;
+
+            InitializeRelockTimer();
+
+        }
+        private void CountdownTimer()
+        {
+            TimeSpan remainingTime = _relockTargetTime - DateTime.Now;
+            if (remainingTime.TotalSeconds <= 0)
+            {
+                // Time's up, reset countdown for next cycle
+                StartSessionTimers();
+                remainingTime = TimeSpan.FromMinutes(2); // Reset to 2 minutes
+            }
+            // Update the countdown display on the unclickable button
+            CheckTimeRemainingbtn.Text = $"Time Remaining: {remainingTime.Minutes:D2}:{remainingTime.Seconds:D2}";
         }
         private void LockoutAuthForm_Resize(object sender, EventArgs e)
         {
@@ -287,12 +320,41 @@ namespace SecureAuthApp
                 $"[Window Resized] State: {this.WindowState} | Width: {this.ClientSize.Width}px, Height: {this.ClientSize.Height}px"
             );
             Debug.WriteLine($"Login Button size: {btnLogin.Width}x{btnLogin.Height}");
-            Debug.WriteLine($"Logout Button size: {btnLogout.Width}x{btnLogout.Height}");
+            Debug.WriteLine($"Logout Button size: {SWUbtn.Width}x{SWUbtn.Height}");
             Debug.WriteLine($"Username Textbox Button size: {txtUsername.Width}x{txtUsername.Height}");
             Debug.WriteLine($"Password Textbox Button size: {txtPassword.Width}x{txtPassword.Height}");
             Debug.WriteLine($"Confirm Logout Button size: {ConfirmLogoutBtn.Width}x{ConfirmLogoutBtn.Height}");
         }
+        private void PerformLogout()
+        {
+            // Stop all active timers
+            StopSessionTimers();
 
+            // Clear login input fields
+            txtUsername.Clear();
+            txtPassword.Clear();
+            lblError.Text = "";
+
+            // Hide system tray icon
+            if (TrayNotiIcon != null)
+            {
+                TrayNotiIcon.Visible = false;
+            }
+
+            // Restore form visibility and re-apply lockdown settings
+            this.BringToFront();
+            this.Show();
+            //ApplyLockdownSettings();
+
+            // Re-hook low-level keyboard hooks to block shortcuts (Alt+Tab, Win Key)
+            if (_hookID == IntPtr.Zero)
+            {
+                _hookID = SetHook(_proc);
+            }
+
+            // Switch back to authentication interface
+            AuthenticationLayout();
+        }
         private void InitializeRelockTimer()
         {
             _relockTimer = new System.Windows.Forms.Timer();
@@ -304,17 +366,48 @@ namespace SecureAuthApp
             _warningTimer = new System.Windows.Forms.Timer();
             _warningTimer.Interval = 1 * 60 * 1000; // 1 minute (60,000 ms)
             _warningTimer.Tick += WarningTimer_Tick;
+
+            // Initialize 1-second countdown update timer
+            _countdownTimer = new System.Windows.Forms.Timer();
+            _countdownTimer.Interval = 1000; // 1000 ms = 1 second
+            _countdownTimer.Tick += CountdownTimer_Tick;
         }
+        private void StartSessionTimers()
+        {
+            _relockTargetTime = DateTime.Now.AddMinutes(2); // Set countdown goal (2 minutes from now)
+
+            _relockTimer.Stop();
+            _relockTimer.Start();
+
+            _warningTimer.Stop();
+            _warningTimer.Start();
+
+            _countdownTimer.Stop();
+            _countdownTimer.Start();
+        }
+
+        private void StopSessionTimers()
+        {
+            _relockTimer?.Stop();
+            _warningTimer?.Stop();
+            _countdownTimer?.Stop();
+        }
+
+        private void CountdownTimer_Tick(object sender, EventArgs e)
+        {
+            CountdownTimer();
+        }
+
         private void RelockTimer_Tick(object sender, EventArgs e)
         {
-            _relockTimer.Stop();
-            _relockTimer.Start(); // Restart the timer for the next cycle
+            // Reset countdown for next cycle
+            StartSessionTimers();
         }
+
         private void WarningTimer_Tick(object sender, EventArgs e)
         {
             _warningTimer.Stop();
             MessageBox.Show("เวลาใกล้หมด กรุณาบันทึกงานของคุณ\n Time is almost up. Please save your work.");
-            _warningTimer.Start(); // Restart the timer for the next cycle
         }
 
         private async void BtnLogin_Click(object sender, EventArgs e)
@@ -341,18 +434,16 @@ namespace SecureAuthApp
 
                 // Start Timer
                 InitializeRelockTimer();
+                StartSessionTimers();
             }
             else
             {
                 lblError.Text = "Invalid credentials.";
-                AuthenticationLayout();
             }
-
-
 
         }
 
-        private async void BtnLogOut_RightClick(object sender, MouseEventArgs e)
+        private async void SWUbtn_RightClick(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Right)
             {
@@ -360,28 +451,31 @@ namespace SecureAuthApp
                 ConfirmLogoutBtn.Visible = true;
                 ConfirmLogoutBtn.Enabled = true;
                 ConfirmLogoutBtn.BringToFront();
+                CheckTimeRemainingbtn.Visible = true;
+                CheckTimeRemainingbtn.Enabled = true;
+                CheckTimeRemainingbtn.BringToFront();
+            }
+        }
+        private async void CheckTimeRemainingbtn_Click(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                ProcessStartInfo startInfo = new ProcessStartInfo()
+                {
+                    FileName = "dotnet",
+                    Arguments = @"run --project C:\Users\Library\source\repos\libswu-libsafetylock\LibSWU_lock_NET_10\TimerCountdownApp.cs", // Or use 'dotnet run YourFile.cs' depending on setup
+                    UseShellExecute = true
+                };
+
+                Process.Start(startInfo);
             }
         }
         private async void ConfirmLogoutBtn_Click(object sender, EventArgs e)
         {
             DialogResult result = MessageBox.Show("Are you sure you want to logout?", "Confirm Logout", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
             if (result == DialogResult.Yes)
-            {// Clear credentials and hide screen
-                txtUsername.Clear();
-                txtPassword.Clear();
-                lblError.Text = "";
-
-                // 3. Hide tray icon and restore form view
-                TrayNotiIcon.Visible = false;
-                this.Show();
-                this.WindowState = FormWindowState.Normal;
-
-                // Reactivate the keyboard hook to re-lock the system
-                if (_hookID == IntPtr.Zero)
-                {
-                    _hookID = SetHook(_proc);
-                }
-                AuthenticationLayout();
+            {
+                PerformLogout();
             }
         }
         private void ApplyLockdownSettings()
@@ -399,17 +493,17 @@ namespace SecureAuthApp
 
         }
 
-        private void LockoutAuthForm_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            _relockTimer?.Stop();
-            _relockTimer?.Dispose();
+        //private void LockoutAuthForm_FormClosed(object sender, FormClosedEventArgs e)
+        //{
+        //    _relockTimer?.Stop();
+        //    _relockTimer?.Dispose();
 
-            if (_hookID != IntPtr.Zero)
-            {
-                UnhookWindowsHookEx(_hookID);
-                _hookID = IntPtr.Zero;
-            }
-        }
+        //    if (_hookID != IntPtr.Zero)
+        //    {
+        //        UnhookWindowsHookEx(_hookID);
+        //        _hookID = IntPtr.Zero;
+        //    }
+        //}
 
         private static readonly HttpClient client = new HttpClient();
 

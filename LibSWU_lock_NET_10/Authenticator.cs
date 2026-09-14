@@ -1,8 +1,8 @@
 namespace LibSWU_lock_NET_10
 {
-    public partial class Form1 : Form
+    public partial class Authenticator : Form
     {
-        public Form1()
+        public Authenticator()
         {
             InitializeComponent();
         }
