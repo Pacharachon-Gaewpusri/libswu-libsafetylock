@@ -1,4 +1,4 @@
-using libsafetylock.Properties;
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -130,12 +130,12 @@ namespace SecureAuthApp
             UsernameLabel = new Label { Text = "User:", AutoSize = true };
             PasswordLabel = new Label { Text = "Password:", AutoSize = true };
 
-            SWUicon = Image.FromFile("C:\\Users\\Library\\source\\repos\\libswu-libsafetylock\\libsafetylock\\Resources\\SWUicon_resized.png");
-            LogoutIcon = Image.FromFile("C:\\Users\\Library\\source\\repos\\libswu-libsafetylock\\libsafetylock\\Resources\\logout.png");
+            SWUicon = Image.FromFile("C:\\Users\\Library\\source\\repos\\libswu-libsafetylock\\LibSWU_lock_NET_10\\Resources\\SWUicon_resized.png");
+            LogoutIcon = Image.FromFile("C:\\Users\\Library\\source\\repos\\libswu-libsafetylock\\LibSWU_lock_NET_10\\Resources\\logout.png");
 
             btnLogin = new Button { Text = "Login", AutoSize = true };
-            btnLogout = new Button { Image = LogoutIcon, Text = "Logout",AutoSize = true, Visible = false, Enabled = true };
-            ConfirmLogoutBtn = new Button { Text = "Confirm Logout?", AutoSize = true, Visible = false , BackColor = Color.LightGray};
+            btnLogout = new Button { Image = LogoutIcon, Text = "Logout", AutoSize = true, Visible = false, Enabled = true };
+            ConfirmLogoutBtn = new Button { Text = "Confirm Logout?", AutoSize = true, Visible = false, BackColor = Color.LightGray };
             AcceptButton = this.btnLogin;
 
             // Pressing Enter will trigger the login button
@@ -185,7 +185,7 @@ namespace SecureAuthApp
 
             // Apply initial layout positioning
             AuthenticationLayout();
-  
+
 
         }
 
@@ -225,7 +225,7 @@ namespace SecureAuthApp
 
             // Align labels directly to the left of textboxes
             UsernameLabel.Location = new Point(txtUsername.Left - PasswordLabel.PreferredWidth, txtUsername.Top);
-            PasswordLabel.Location = new Point(txtPassword.Left - PasswordLabel.PreferredWidth , txtPassword.Top);
+            PasswordLabel.Location = new Point(txtPassword.Left - PasswordLabel.PreferredWidth, txtPassword.Top);
 
             // Center button and error message vertically under inputs
             btnLogin.Width = 75;
@@ -296,13 +296,13 @@ namespace SecureAuthApp
         private void InitializeRelockTimer()
         {
             _relockTimer = new System.Windows.Forms.Timer();
-            _relockTimer.Interval = 2*60*1000; // 2 minutes in milliseconds
+            _relockTimer.Interval = 2 * 60 * 1000; // 2 minutes in milliseconds
             _relockTimer.Tick += RelockTimer_Tick;
 
 
             // 1-minute warning timer
             _warningTimer = new System.Windows.Forms.Timer();
-            _warningTimer.Interval = 1*60*1000; // 1 minute (60,000 ms)
+            _warningTimer.Interval = 1 * 60 * 1000; // 1 minute (60,000 ms)
             _warningTimer.Tick += WarningTimer_Tick;
         }
         private void RelockTimer_Tick(object sender, EventArgs e)
@@ -349,9 +349,9 @@ namespace SecureAuthApp
             }
 
 
-            
+
         }
-     
+
         private async void BtnLogOut_RightClick(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Right)
@@ -427,7 +427,7 @@ namespace SecureAuthApp
             HttpResponseMessage response = await client.PostAsJsonAsync(requestUrl, postData);
             return response.IsSuccessStatusCode;
         }
-        
+
         private static IntPtr SetHook(LowLevelKeyboardProc proc)
         {
             using (Process curProcess = Process.GetCurrentProcess())

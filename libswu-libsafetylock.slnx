@@ -1,3 +1,6 @@
 <Solution>
+  <Folder Name="/Solution Items/" />
   <Project Path="libsafetylock/libsafetylock.csproj" />
+  <Project Path="LibSWU_lock_NET_10/LibSWU_lock_NET_10.csproj" Id="4da0fec5-9e8e-4d1a-ab14-ac419d35d88e" />
+  <Project Path="TestApp/TestApp.csproj" Id="148ca6d1-dc61-45cd-817d-3975e421380d" />
 </Solution>
