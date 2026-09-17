@@ -8,6 +8,8 @@ using System.Drawing;
 using System.Net;
 using System.Net.Http.Json;
 using System.Net.Sockets;
+using System.Reflection.Metadata;
+
 //using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -15,15 +17,17 @@ using System.Threading.Tasks;
 using System.Timers;
 using System.Windows.Forms;
 using System.Xml.Linq;
+using static SecureAuthApp.LockAuthForm;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
+
 
 
 
 namespace SecureAuthApp
 {
-
+ 
     // ==========================================
-    // 1. APPLICATION ENTRY POINT
+    //  APPLICATION ENTRY POINT
     // ==========================================
     static class Program
     {
@@ -36,86 +40,22 @@ namespace SecureAuthApp
             Application.SetCompatibleTextRenderingDefault(false);
 
             // Starts the application with the lockout form
-            Application.Run(new LockoutAuthForm());
+            Application.Run(new LockAuthForm());
+            
         }
     }
+
     // ==========================================
-    // 2. REMAINING TIME CHECKER FORM
+    //  LOCKOUT FORM IMPLEMENTATION
     // ==========================================
-    public class RemainingTimeChecker : Form
-    {
-        private Label lblTimerDisplay;
-        private System.Windows.Forms.Timer _displayTimer;
-        private Func<DateTime> _getTargetTime;
-
-        public RemainingTimeChecker(Func<DateTime> getTargetTime)
-        {
-            _getTargetTime = getTargetTime;
-
-            // Form Properties
-            this.Text = "Session Time Remaining:";
-            this.Size = new Size(400, 240);
-            this.FormBorderStyle = FormBorderStyle.FixedToolWindow;
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.TopMost = true; // Keeps window floating above active applications
-
-            // Timer Label
-            lblTimerDisplay = new Label
-            {
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Arial", 16, FontStyle.Bold),
-                ForeColor = Color.DarkBlue
-            };
-            this.Controls.Add(lblTimerDisplay);
-
-            // 1-Second UI Refresh Timer
-            _displayTimer = new System.Windows.Forms.Timer { Interval = 1000 };
-            _displayTimer.Tick += DisplayTimer_Tick;
-            _displayTimer.Start();
-
-            UpdateCountdownText();
-        }
-
-        private void DisplayTimer_Tick(object sender, EventArgs e)
-        {
-            UpdateCountdownText();
-        }
-
-        private void UpdateCountdownText()
-        {
-            DateTime target = _getTargetTime();
-            TimeSpan remaining = target - DateTime.Now;
-
-            if (remaining.TotalSeconds <= 0)
-            {
-                lblTimerDisplay.Text = "Relocking System...";
-                lblTimerDisplay.ForeColor = Color.Red;
-            }
-            else
-            {
-                lblTimerDisplay.Text = $"Relock in: {remaining.Minutes:D2}:{remaining.Seconds:D2}";
-            }
-        }
-
-        //protected override void OnFormClosing(FormClosingEventArgs e)
-        //{
-        //    _displayTimer?.Stop();
-        //    _displayTimer?.Dispose();
-        //    base.OnFormClosing(e);
-        //}
-    }
-    // ==========================================
-    // 3. LOCKOUT FORM IMPLEMENTATION
-    // ==========================================
-    public class LockoutAuthForm : Form
+    public class LockAuthForm : Form
     {
         private TextBox txtUsername;
         private TextBox txtPassword;
         private Label UsernameLabel;
         private Label PasswordLabel;
         private Button btnLogin;
-        private Button CheckTimeRemainingbtn; // Unclickable button for displaying remaining time
+        private Button CheckTimeRemainingbtn; 
         private Button ConfirmLogoutBtn;
         private Button SWUbtn;
         private Image SWUicon;
@@ -127,42 +67,41 @@ namespace SecureAuthApp
         private System.Windows.Forms.Timer _warningTimer; // Timer for 1-minute warning
         private System.Windows.Forms.Timer _countdownTimer; // 1-second tick timer for UI countdown
         private DateTime _relockTargetTime; // Stores precise end time to prevent timer drift
-        private bool _isStandbyMode = false;// Tracks current active layout state
-        // Store original bounds (design-time) for each child control so we can scale from them
-        
-        private RemainingTimeChecker _timeCheckerForm; // Instance reference for the popup checker window
+        private DateTime _warningTime; // Stores precise warning time
+        private bool _isStandbyMode;// Tracks current active layout state
+        public bool _isTabOpened;
         private readonly Dictionary<Control, Rectangle> _originalBounds = new();
 
         private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
         private static LowLevelKeyboardProc _proc = HookCallback;
         private static IntPtr _hookID = IntPtr.Zero;
-
+        // Instance reference for the popup checker window
         private const int WH_KEYBOARD_LL = 13;
         private const int WM_KEYDOWN = 0x0100;
         private const int WM_SYSKEYDOWN = 0x0104;
-
-
         private (string Username, string Password) postData = ("admin", "exampleP@ssword"); // adjust values
+        private Label lblTimerDisplay = null;
+        //private System.Windows.Forms.Timer _displayTimer;
+        //private Func<DateTime> _getTargetTime;
 
 
-
-        public LockoutAuthForm()
+        public LockAuthForm()
         {
 
             // Ensure DPI scaling behavior
             this.AutoScaleMode = AutoScaleMode.Dpi;
             this.StartPosition = FormStartPosition.CenterScreen;
 
-            //ApplyLockdownSettings();
+            ApplyLockdownSettings();
             InitializeRelockTimer();
             InitializeFormComponents();
             
+
             // Prevent user from closing window during active lockdown
             this.FormClosing += (s, e) => {
                 if (e.CloseReason == CloseReason.UserClosing)
                     e.Cancel = true;
             };
-            //Debug.WriteLine($"Form size: {ClientSize.Width}x{ClientSize.Height}");
 
 
         }
@@ -193,6 +132,7 @@ namespace SecureAuthApp
             }
             return "127.0.0.1";
         }
+
         private void InitializeFormComponents()
         {
 
@@ -208,7 +148,7 @@ namespace SecureAuthApp
 
             btnLogin = new Button { Text = "Login", AutoSize = true };
             SWUbtn = new Button { Image = LogoutIcon, Text = "Logout", AutoSize = true, Visible = false, Enabled = true };
-            ConfirmLogoutBtn = new Button { Text = "Confirm Logout?", AutoSize = true, Visible = false, BackColor = Color.LightGray };
+            ConfirmLogoutBtn = new Button { Text = "Logout?", AutoSize = true, Visible = false, BackColor = Color.LightGray };
 
             CheckTimeRemainingbtn = new Button{Text = "Check Time Remaining:", AutoSize = true, Visible = false, BackColor = Color.LightGray};
 
@@ -359,14 +299,34 @@ namespace SecureAuthApp
             InitializeRelockTimer();
 
         }
+        private void UpdateCountdownText()
+        {
+
+            DateTime target = DateTime.Now.AddMinutes(2); // 2 minutes from now
+            TimeSpan remaining = target - DateTime.Now;
+
+            if (remaining.TotalSeconds <= 0)
+            {
+                lblTimerDisplay.Text = "Relocking System...";
+                lblTimerDisplay.ForeColor = Color.Red;
+                CloseRemainingTimeChecker();
+                PerformLogout();
+            }
+            else
+            {
+                lblTimerDisplay.Text = $"Time Remaining: {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+            }
+        }
+
         private void CountdownTimer()
         {
             TimeSpan remainingTime = _relockTargetTime - DateTime.Now;
             if (remainingTime.TotalSeconds <= 0)
             {
                 // Time's up, reset countdown for next cycle
-                StartSessionTimers();
-                remainingTime = TimeSpan.FromMinutes(2); // Reset to 2 minutes
+                StopSessionTimers();
+                PerformLogout();
+
             }
             // Update the countdown display on the unclickable button
         }
@@ -383,12 +343,29 @@ namespace SecureAuthApp
             Debug.WriteLine($"Username Textbox Button size: {txtUsername.Width}x{txtUsername.Height}");
             Debug.WriteLine($"Password Textbox Button size: {txtPassword.Width}x{txtPassword.Height}");
             Debug.WriteLine($"Confirm Logout Button size: {ConfirmLogoutBtn.Width}x{ConfirmLogoutBtn.Height}");
+
         }
         private void PerformLogout()
         {
             // Stop all active timers
             StopSessionTimers();
 
+            //_timeCheckerForm = null;
+            // Close tracked timer form and any additional open secondary forms
+            CloseRemainingTimeChecker();
+            for (int i = Application.OpenForms.Count - 1; i >= 0; i--)
+            {
+                Form openForm = Application.OpenForms[i];
+                if (openForm != this)
+                {
+                    openForm.Close();
+                    openForm.Dispose();
+                }
+            }
+
+            // Reset input fields and state flags
+            _isStandbyMode = false;
+            _isTabOpened = false;
             // Clear login input fields
             txtUsername.Clear();
             txtPassword.Clear();
@@ -399,11 +376,8 @@ namespace SecureAuthApp
             {
                 TrayNotiIcon.Visible = false;
             }
-
-            // Restore form visibility and re-apply lockdown settings
-            this.BringToFront();
-            this.Show();
-            //ApplyLockdownSettings();
+            ConfirmLogoutBtn.Visible = false;
+            CheckTimeRemainingbtn.Visible = false;
 
             // Re-hook low-level keyboard hooks to block shortcuts (Alt+Tab, Win Key)
             if (_hookID == IntPtr.Zero)
@@ -411,9 +385,18 @@ namespace SecureAuthApp
                 _hookID = SetHook(_proc);
             }
 
+            this.WindowState = FormWindowState.Normal;
+            ApplyLockdownSettings(); // Restore form visibility and re-apply lockdown settings
+
             // Switch back to authentication interface
             AuthenticationLayout();
+            this.BringToFront();
+            this.Activate();
+            this.Show();
+
         }
+
+       
         private void InitializeRelockTimer()
         {
             _relockTimer = new System.Windows.Forms.Timer();
@@ -434,6 +417,7 @@ namespace SecureAuthApp
         private void StartSessionTimers()
         {
             _relockTargetTime = DateTime.Now.AddMinutes(2); // Set countdown goal (2 minutes from now)
+            _warningTime = DateTime.Now.AddMinutes(1); // Set warning time (1 minute from now)
 
             _relockTimer.Stop();
             _relockTimer.Start();
@@ -460,34 +444,155 @@ namespace SecureAuthApp
         private void RelockTimer_Tick(object sender, EventArgs e)
         {
             // Reset countdown for next cycle
-            StartSessionTimers();
+            _relockTimer.Start();
+            _warningTimer.Start();
+            _countdownTimer.Start();
         }
 
+        public class YesNoMessageBox : Form
+        {
+            public YesNoMessageBox(string message, string title, Action onYesClicked)
+            {
+                this.Text = title;
+                this.Size = new Size(320, 160);
+                this.FormBorderStyle = FormBorderStyle.FixedDialog;
+                this.StartPosition = FormStartPosition.CenterScreen;
+                this.MaximizeBox = false;
+                this.MinimizeBox = false;
+                this.TopMost = true;
+
+                Label lblMessage = new Label
+                {
+                    Text = message,
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Padding = new Padding(10)
+                };
+                // Container panel to place Yes and No buttons horizontally
+                Panel buttonPanel = new Panel
+                {
+                    Dock = DockStyle.Bottom,
+                    Height = 45
+                };
+                Button btnYes = new Button
+                {
+                    Text = "Yes",
+                    Size = new Size(80, 30),
+                    Location = new Point(70, 8),
+                    DialogResult = DialogResult.Yes
+                };
+                Button btnNo = new Button
+                {
+                    Text = "No",
+                    Size = new Size(80, 30),
+                    Location = new Point(160, 8),
+                    DialogResult = DialogResult.No
+                };
+
+                btnYes.Click += (s, e) => {
+                    this.Close();
+                    onYesClicked?.Invoke();
+                };
+                btnNo.Click += (s, e) => this.Close();
+                
+                buttonPanel.Controls.Add(btnYes);
+                buttonPanel.Controls.Add(btnNo);
+
+                this.Controls.Add(lblMessage);
+                this.Controls.Add(buttonPanel);
+            }
+            
+        }
+         public class WarningMessageBox : Form
+        {
+            public WarningMessageBox(string message, string title)
+            {
+                this.Text = title;
+                this.Size = new Size(320, 160);
+                this.FormBorderStyle = FormBorderStyle.FixedDialog;
+                this.StartPosition = FormStartPosition.CenterScreen;
+                this.MaximizeBox = false;
+                this.MinimizeBox = false;
+                this.TopMost = true;
+
+                Label lblMessage = new Label
+                {
+                    Text = message,
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Padding = new Padding(10)
+                };
+                Panel buttonPanel = new Panel
+                {
+                    Dock = DockStyle.Bottom,
+                    Height = 45
+                };
+                Button btnOk = new Button
+                {
+                    Text = "OK",
+                    Size = new Size(80, 30),
+                    Location = new Point(120, 10),
+                    DialogResult = DialogResult.OK
+                };
+                btnOk.Click += (s, e) => this.Close();
+
+                buttonPanel.Controls.Add(btnOk);
+                this.Controls.Add(lblMessage);
+                this.Controls.Add(buttonPanel);
+            }
+            
+        }
+        //ConfirmLogoutMessageBox
+        private WarningMessageBox _warningMsgTimer;
         private void WarningTimer_Tick(object sender, EventArgs e)
         {
             _warningTimer.Stop();
-            MessageBox.Show("เวลาใกล้หมด กรุณาบันทึกงานของคุณ\n Time is almost up. Please save your work.");
-        }
-        private void OpenRemainingTimeChecker()
-        {
-            if (_timeCheckerForm == null || _timeCheckerForm.IsDisposed)
+            _warningMsgTimer = null;
+            if (_warningMsgTimer == null || _warningMsgTimer.IsDisposed)
             {
-                _timeCheckerForm = new RemainingTimeChecker(() => _relockTargetTime);
-                _timeCheckerForm.Show();
+                _warningMsgTimer = new WarningMessageBox("เวลาใกล้หมด กรุณาบันทึกงานของคุณ\n Time is almost up. Please save your work.", "Warning");
+                _warningMsgTimer.FormClosed += (s, e) => _isTabOpened = false;
+                _warningMsgTimer.Show();
+                _isTabOpened = true;
             }
             else
             {
-                _timeCheckerForm.BringToFront();
-                _timeCheckerForm.Activate();
+                // Bring existing window to the front if clicked again
+                _warningMsgTimer.BringToFront();
+                _warningMsgTimer.Focus();
+            }
+            //MessageBox.Show("เวลาใกล้หมด กรุณาบันทึกงานของคุณ\n Time is almost up. Please save your work.");
+        }
+        private void DisplayTimer_Tick(object sender, EventArgs e)
+        {
+            UpdateCountdownText();
+        }
+        private TimeCheckerForm _timeCheckerWindow;
+
+        private void OpenRemainingTimeChecker()
+        {
+            // Open a new window if one doesn't exist or was previously closed
+           if (_timeCheckerWindow == null || _timeCheckerWindow.IsDisposed)
+            {
+                _timeCheckerWindow = new TimeCheckerForm(() => _relockTargetTime);
+                _timeCheckerWindow.FormClosed += (s, e) => _isTabOpened = false;
+                _timeCheckerWindow.Show();
+                _isTabOpened = true;
+            }
+           else
+            {
+                 // Bring existing window to the front if clicked again
+                 _timeCheckerWindow.BringToFront();
+                 _timeCheckerWindow.Focus();
             }
         }
+
         private void CloseRemainingTimeChecker()
         {
-            if (_timeCheckerForm != null && !_timeCheckerForm.IsDisposed)
+            if (_timeCheckerWindow != null && !_timeCheckerWindow.IsDisposed)
             {
-                _timeCheckerForm.Close();
-                _timeCheckerForm.Dispose();
-                _timeCheckerForm = null;
+                _timeCheckerWindow.Close();
+                _timeCheckerWindow = null;
             }
         }
         private async void BtnLogin_Click(object sender, EventArgs e)
@@ -518,7 +623,9 @@ namespace SecureAuthApp
             }
             else
             {
-                lblError.Text = "Invalid credentials.";
+                
+               
+                 lblError.Text = "Invalid credentials.";
             }
 
         }
@@ -537,14 +644,25 @@ namespace SecureAuthApp
         }
         private void CheckTimeRemainingbtn_Click(object sender, EventArgs e)
         {
-                OpenRemainingTimeChecker();
+             OpenRemainingTimeChecker();
         }
-        private async void ConfirmLogoutBtn_Click(object sender, EventArgs e)
+        private YesNoMessageBox _LogoutTab;
+        private void ConfirmLogoutBtn_Click(object sender, EventArgs e)
         {
-            DialogResult result = MessageBox.Show("Are you sure you want to logout?", "Confirm Logout", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-            if (result == DialogResult.Yes)
+            var LogoutTab = new YesNoMessageBox("คุณต้องการออกจากระบบหรือไม่?\nDo you want to log out?", "Confirm Logout",() => PerformLogout());
+            if (_LogoutTab == null || _LogoutTab.IsDisposed)
             {
-                PerformLogout();
+                // If the time checker tab is already open, bring it to the front
+                _LogoutTab = new YesNoMessageBox("คุณต้องการออกจากระบบหรือไม่?\nDo you want to log out?", "Confirm Logout", () => PerformLogout());
+                _LogoutTab.FormClosed += (s, e) => _isTabOpened = false;
+                _LogoutTab.Show();
+                _isTabOpened = true;
+            }
+            else
+            {
+                // Open the time checker tab if it's not already open
+                _LogoutTab.BringToFront();
+                _LogoutTab.Focus();
             }
         }
         private void ApplyLockdownSettings()
@@ -626,6 +744,70 @@ namespace SecureAuthApp
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
+
+    }
+    public class TimeCheckerForm : Form
+    {
+        private readonly Func<DateTime> _getTargetTime;
+        private Label lblTimerDisplay;
+        private System.Windows.Forms.Timer _displayTimer;
+        public bool _isTabOpened;
+        public TimeCheckerForm(Func<DateTime> getTargetTime)
+        {
+            _getTargetTime = getTargetTime;
+
+            // Window properties
+            this.Text = "Session Time Remaining";
+            this.Size = new Size(400, 240);
+            this.FormBorderStyle = FormBorderStyle.FixedToolWindow;
+            this.StartPosition = FormStartPosition.Manual;
+            this.Location = new Point(
+                Screen.PrimaryScreen.WorkingArea.Right - this.Width - 10,
+                Screen.PrimaryScreen.WorkingArea.Bottom - this.Height - 10
+            );
+            this.TopMost = true;
+            // Timer Label Display
+            lblTimerDisplay = new Label
+            {
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Arial", 16, FontStyle.Bold),
+                ForeColor = Color.DarkBlue
+            };
+            this.Controls.Add(lblTimerDisplay);
+
+            // 1-Second Refresh Timer
+            _displayTimer = new System.Windows.Forms.Timer { Interval = 1000 };
+            _displayTimer.Tick += (s, e) => UpdateCountdownText();
+            _displayTimer.Start();
+
+            // Cleanup on form close
+            this.FormClosed += (s, e) =>
+            {
+                //_displayTimer.Stop();
+                //_displayTimer.Dispose();
+                _isTabOpened = false;
+            };
+            
+            UpdateCountdownText();
+        }
+
+        private void UpdateCountdownText()
+        {
+            DateTime target = _getTargetTime();
+            TimeSpan remaining = target - DateTime.Now;
+
+            if (remaining.TotalSeconds <= 0)
+            {
+                lblTimerDisplay.Text = "Relocking System...";
+                lblTimerDisplay.ForeColor = Color.Red;
+                _displayTimer.Stop();
+            }
+            else
+            {
+                lblTimerDisplay.Text = $"Time Remaining: {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+            }
+        }
 
     }
 }

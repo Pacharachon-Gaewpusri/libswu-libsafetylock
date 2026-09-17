@@ -8,4 +8,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="AutoClosingMessageBox" Version="1.0.0.7" />
+  </ItemGroup>
+
 </Project>
