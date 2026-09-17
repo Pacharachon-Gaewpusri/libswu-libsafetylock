@@ -597,38 +597,79 @@ namespace SecureAuthApp
         }
         private async void BtnLogin_Click(object sender, EventArgs e)
         {
-            var creds = (Username: txtUsername.Text, Password: txtPassword.Text);
-            bool ok = await SendAuthRequest(creds);
-            if (ok)
+            try
             {
-                // Temporarily unhook keyboard lock so user can use the OS
-                if (_hookID != IntPtr.Zero)
+                var creds = (Username: txtUsername.Text, Password: txtPassword.Text);
+                var result = await SendAuthRequest(creds);
+
+                if (result.IsSuccess)
                 {
-                    UnhookWindowsHookEx(_hookID);
-                    _hookID = IntPtr.Zero;
+                    // Temporarily unhook keyboard lock so user can use the OS
+                    if (_hookID != IntPtr.Zero)
+                    {
+                        UnhookWindowsHookEx(_hookID);
+                        _hookID = IntPtr.Zero;
+                    }
+
+                    // Clear credentials and hide screen
+                    txtUsername.Clear();
+                    txtPassword.Clear();
+                    lblError.Text = "";
+
+                    // Switch UI to Standby Layout and start session timers
+                    this.WindowState = FormWindowState.Minimized;
+                    StandbyLayout();
+
+                    // Start Timer
+                    InitializeRelockTimer();
+                    StartSessionTimers();
+                }
+                else if (result.StatusCode == HttpStatusCode.Unauthorized || result.StatusCode == HttpStatusCode.BadRequest)
+                {
+                    // Handles invalid credentials (400 / 401)
+                    WarningMessageBox authWarning = new WarningMessageBox(
+                        "Invalid username or password.\nPlease try again.",
+                        "Login Warning"
+                    );
+                    authWarning.ShowDialog();
+                    Debug.WriteLine($"[Authentication Error] HTTP Status Code: {(int)result.StatusCode} ({result.StatusCode}) | Message: {result.ErrorMessage}");
+                }
+                else
+                {
+                    // Explicitly throw an exception for non-credential API failures (500, 503, etc.)
+                    throw new HttpRequestException(
+                        string.IsNullOrWhiteSpace(result.ErrorMessage)
+                            ? "Server returned an unexpected response state."
+                            : result.ErrorMessage,
+                        null,
+                        result.StatusCode
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                // Catches thrown API errors, network drops, and unexpected socket/HTTP exceptions
+                HttpStatusCode statusCode = HttpStatusCode.InternalServerError;
+                string issueDetails = ex.Message;
+
+                // Extracts exact status code if the exception was triggered by HttpRequestException
+                if (ex is HttpRequestException httpEx && httpEx.StatusCode.HasValue)
+                {
+                    statusCode = httpEx.StatusCode.Value;
+                }
+                else if (ex is SocketException)
+                {
+                    statusCode = HttpStatusCode.ServiceUnavailable;
                 }
 
-                // Clear credentials and hide screen
-                txtUsername.Clear();
-                txtPassword.Clear();
-                lblError.Text = "";
+                string apiMessage = $"The API encountered an issue.\n\nIssue: {issueDetails}\nHTTP Status Code: {(int)statusCode} ({statusCode})";
 
-                // Switch UI to Standby Layout and start session timers
-                this.WindowState = FormWindowState.Minimized;
-                StandbyLayout();
-
-                // Start Timer
-                InitializeRelockTimer();
-                StartSessionTimers();
+                WarningMessageBox apiWarning = new WarningMessageBox(apiMessage, "API Warning");
+                apiWarning.ShowDialog();
             }
-            else
-            {
-                
-               
-                 lblError.Text = "Invalid credentials.";
-            }
-
         }
+
+        
 
         private async void SWUbtn_RightClick(object sender, MouseEventArgs e)
         {
@@ -693,8 +734,7 @@ namespace SecureAuthApp
         //}
 
         private static readonly HttpClient client = new HttpClient();
-
-        static async Task<bool> SendAuthRequest((string Username, string Password) credentials)
+        private static async Task<(bool IsSuccess, HttpStatusCode StatusCode, string ErrorMessage)> SendAuthRequest((string Username, string Password) credentials)
         {
             string requestUrl = "https://lib.swu.ac.th/api/auth";
             var postData = new
@@ -705,8 +745,24 @@ namespace SecureAuthApp
                 ip = GetLocalIPv4Address()
             };
 
-            HttpResponseMessage response = await client.PostAsJsonAsync(requestUrl, postData);
-            return response.IsSuccessStatusCode;
+            try
+            {
+                HttpResponseMessage response = await client.PostAsJsonAsync(requestUrl, postData);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return (true, response.StatusCode, null);
+                }
+
+                // Return error status for credential check handling
+                string errorContent = await response.Content.ReadAsStringAsync();
+                return (false, response.StatusCode, errorContent);
+            }
+            catch (HttpRequestException ex)
+            {
+                // Re-throw so BtnLogin_Click handles it in its catch block
+                throw new HttpRequestException($"Network/API Error: {ex.Message}", ex, ex.StatusCode ?? HttpStatusCode.ServiceUnavailable);
+            }
         }
 
         private static IntPtr SetHook(LowLevelKeyboardProc proc)
