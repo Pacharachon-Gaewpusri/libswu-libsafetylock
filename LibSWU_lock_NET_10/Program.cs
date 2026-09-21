@@ -2,6 +2,7 @@
 using LibSWU_lock_NET_10;
 using Microsoft.VisualBasic.ApplicationServices;
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -143,8 +144,18 @@ namespace SecureAuthApp
             UsernameLabel = new Label { Text = "User:", AutoSize = true };
             PasswordLabel = new Label { Text = "Password:", AutoSize = true };
 
-            SWUicon = Image.FromFile("C:\\Users\\Library\\source\\repos\\libswu-libsafetylock\\LibSWU_lock_NET_10\\Resources\\SWUicon_resized.png");
-            LogoutIcon = Image.FromFile("C:\\Users\\Library\\source\\repos\\libswu-libsafetylock\\LibSWU_lock_NET_10\\Resources\\logout.png");
+            string exeDirectory = Application.StartupPath;
+            Debug.WriteLine($"[Startup Path] Executable Directory: {exeDirectory}");
+
+            string swuPath = Path.Combine(Application.StartupPath, "Resources", "SWUicon_resized.png");
+            string bgPath = Path.Combine(Application.StartupPath, "Resources", "The digital library, wisdom and passion of SWU (4).png");
+
+            if (File.Exists(swuPath)) { SWUicon = Image.FromFile(swuPath); }
+            if (File.Exists(bgPath))
+            {
+                this.BackgroundImage = Image.FromFile(bgPath);
+                this.BackgroundImageLayout = ImageLayout.Stretch; // Scales image to fit full screen
+            }
 
             btnLogin = new Button { Text = "Login", AutoSize = true };
             SWUbtn = new Button { Image = LogoutIcon, Text = "Logout", AutoSize = true, Visible = false, Enabled = true };
@@ -209,9 +220,7 @@ namespace SecureAuthApp
         {
             _isStandbyMode = false;
 
-            // Restore solid background & disable transparency
-            this.TransparencyKey = Color.Empty;
-            this.BackColor = SystemColors.Control;
+            this.ShowInTaskbar = false;
 
             // Query live window dimensions on demand
             int tabWidth = ClientSize.Width;
@@ -261,12 +270,31 @@ namespace SecureAuthApp
             int tabHeight = ClientSize.Height;
 
             this.ShowInTaskbar = false;
+            Icon trayIcon = SystemIcons.Application;
+
+            if (SWUicon is Bitmap bmp)
+            {
+                IntPtr hIcon = bmp.GetHicon();
+                try
+                {
+                    using (Icon tempIcon = Icon.FromHandle(hIcon))
+                    {
+                        trayIcon = (Icon)tempIcon.Clone(); // Copy icon into managed memory
+                    }
+                }
+                finally
+                {
+                    DestroyIcon(hIcon); // Immediately release unmanaged Windows GDI handle
+                }
+            }
+            // Dispose old instance to prevent duplicate tray icons on relock/re-login
+            TrayNotiIcon?.Dispose();
 
             TrayNotiIcon = new NotifyIcon
             {
-                Icon = Icon.FromHandle(((Bitmap)SWUicon).GetHicon()), // Sets system icon; update with custom icon if available
+                Icon = trayIcon,
                 Text = "Secure Auth App",
-                ContextMenuStrip = trayContextMenu, // Assign right-click menu
+                ContextMenuStrip = trayContextMenu,
                 Visible = false
             };
 
@@ -617,7 +645,7 @@ namespace SecureAuthApp
                     lblError.Text = "";
 
                     // Switch UI to Standby Layout and start session timers
-                    this.WindowState = FormWindowState.Minimized;
+                    this.Hide();
                     StandbyLayout();
 
                     // Start Timer
@@ -800,6 +828,9 @@ namespace SecureAuthApp
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool DestroyIcon(IntPtr hIcon);
 
     }
     public class TimeCheckerForm : Form
