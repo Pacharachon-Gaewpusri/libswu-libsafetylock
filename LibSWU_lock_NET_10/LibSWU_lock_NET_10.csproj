@@ -25,6 +25,9 @@
     <None Update="Resources\SWUicon_resized.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Resources\The_digital_library_ wisdom_and_passion_of_SWU%284%29.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

@@ -61,6 +61,7 @@ namespace SecureAuthApp
         private Button SWUbtn;
         private Image SWUicon;
         private Image LogoutIcon;
+        private Image BackgroundImage;
         private NotifyIcon TrayNotiIcon;
         private ContextMenuStrip trayContextMenu;
         private Label lblError;
@@ -148,20 +149,15 @@ namespace SecureAuthApp
             Debug.WriteLine($"[Startup Path] Executable Directory: {exeDirectory}");
 
             string swuPath = Path.Combine(Application.StartupPath, "Resources", "SWUicon_resized.png");
-            string bgPath = Path.Combine(Application.StartupPath, "Resources", "The_digital_library_ wisdom_and_passion_of_SWU(4).png");
+            string bgPath = Path.Combine(Application.StartupPath, "Resources", "The_digital_library_wisdom_and_passion_of_SWU(4).png");
 
             if (File.Exists(swuPath)) { SWUicon = Image.FromFile(swuPath); }
-            if (File.Exists(bgPath))
-            {
-                this.BackgroundImage = Image.FromFile(bgPath);
-                this.BackgroundImageLayout = ImageLayout.Stretch; // Scales image to fit full screen
-            }
 
             btnLogin = new Button { Text = "Login", AutoSize = true };
             SWUbtn = new Button { Image = LogoutIcon, Text = "Logout", AutoSize = true, Visible = false, Enabled = true };
-            ConfirmLogoutBtn = new Button { Text = "Logout?", AutoSize = true, Visible = false, BackColor = Color.LightGray };
+            ConfirmLogoutBtn = new Button { Text = "Logout?", AutoSize = true, Visible = false };
 
-            CheckTimeRemainingbtn = new Button{Text = "Check Time Remaining:", AutoSize = true, Visible = false, BackColor = Color.LightGray};
+            CheckTimeRemainingbtn = new Button{Text = "Check Time Remaining:", AutoSize = true, Visible = false};
 
             AcceptButton = this.btnLogin;
 
@@ -213,17 +209,24 @@ namespace SecureAuthApp
 
             // Apply initial layout positioning
             AuthenticationLayout();
-
+            
         }
 
         private void AuthenticationLayout()
         {
+            string bgPath = Path.Combine(Application.StartupPath, "Resources", "The_digital_library_wisdom_and_passion_of_SWU(4).png");
+            Debug.WriteLine($"[Background Image Path] {bgPath}");
+            if (File.Exists(bgPath))
+            {
+                this.BackgroundImage = Image.FromFile(bgPath);
+                this.BackgroundImageLayout = ImageLayout.Stretch; // Scales image to fit full screen
+            }
             _isStandbyMode = false;
-
             this.ShowInTaskbar = false;
 
-            // Preserve transparency and background image visibility
-            this.TransparencyKey = Color.Empty;
+            //// Preserve transparency and background image visibility
+            //this.TransparencyKey = Color.Empty;
+
             // Query live window dimensions on demand
             int tabWidth = ClientSize.Width;
             int tabHeight = ClientSize.Height;
