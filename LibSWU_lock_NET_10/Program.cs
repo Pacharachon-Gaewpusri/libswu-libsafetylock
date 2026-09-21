@@ -148,7 +148,7 @@ namespace SecureAuthApp
             Debug.WriteLine($"[Startup Path] Executable Directory: {exeDirectory}");
 
             string swuPath = Path.Combine(Application.StartupPath, "Resources", "SWUicon_resized.png");
-            string bgPath = Path.Combine(Application.StartupPath, "Resources", "The digital library, wisdom and passion of SWU (4).png");
+            string bgPath = Path.Combine(Application.StartupPath, "Resources", "The_digital_library_ wisdom_and_passion_of_SWU(4).png");
 
             if (File.Exists(swuPath)) { SWUicon = Image.FromFile(swuPath); }
             if (File.Exists(bgPath))
@@ -222,6 +222,8 @@ namespace SecureAuthApp
 
             this.ShowInTaskbar = false;
 
+            // Preserve transparency and background image visibility
+            this.TransparencyKey = Color.Empty;
             // Query live window dimensions on demand
             int tabWidth = ClientSize.Width;
             int tabHeight = ClientSize.Height;

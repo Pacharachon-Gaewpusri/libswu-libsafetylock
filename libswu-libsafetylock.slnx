@@ -1,5 +1,7 @@
 <Solution>
-  <Folder Name="/Solution Items/" />
+  <Folder Name="/Solution Items/">
+    <File Path="libsafetylock/Resources/The_digital_library_ wisdom_and_passion_of_SWU(4).png" />
+  </Folder>
   <Project Path="libsafetylock/libsafetylock.csproj" />
   <Project Path="LibSWU_lock_NET_10/LibSWU_lock_NET_10.csproj" Id="4da0fec5-9e8e-4d1a-ab14-ac419d35d88e" />
 </Solution>
