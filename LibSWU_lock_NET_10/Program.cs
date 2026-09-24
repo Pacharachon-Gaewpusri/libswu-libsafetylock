@@ -61,7 +61,7 @@ namespace SecureAuthApp
         private Button SWUbtn;
         private Image SWUicon;
         private Image LogoutIcon;
-        private Image BackgroundImage;
+        private Image BG;
         private NotifyIcon TrayNotiIcon;
         private ContextMenuStrip trayContextMenu;
         private Label lblError;
@@ -215,10 +215,10 @@ namespace SecureAuthApp
         private void AuthenticationLayout()
         {
             string bgPath = Path.Combine(Application.StartupPath, "Resources", "The_digital_library_wisdom_and_passion_of_SWU(4).png");
-            Debug.WriteLine($"[Background Image Path] {bgPath}");
+            Image BG = Image.FromFile(bgPath);
             if (File.Exists(bgPath))
             {
-                this.BackgroundImage = Image.FromFile(bgPath);
+                this.BackgroundImage = BG;
                 this.BackgroundImageLayout = ImageLayout.Stretch; // Scales image to fit full screen
             }
             _isStandbyMode = false;
