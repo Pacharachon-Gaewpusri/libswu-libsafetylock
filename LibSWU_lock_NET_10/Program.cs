@@ -385,7 +385,7 @@ namespace SecureAuthApp
             // Apply 1-hour lockout to the user who just logged out or timed out
             if (!string.IsNullOrEmpty(_currentLoggedInUser))
             {
-                _blockedUsers[_currentLoggedInUser] = DateTime.Now.AddHours(1);
+                _blockedUsers[_currentLoggedInUser] = DateTime.Now.AddMinutes(1);
                 _currentLoggedInUser = null; // Reset current session user
             }
 
@@ -648,7 +648,7 @@ namespace SecureAuthApp
                     {
                         TimeSpan remaining = unblockTime - DateTime.Now;
                         WarningMessageBox blockWarning = new WarningMessageBox(
-                            $"This account is on a 1-hour cooldown.\nPlease wait {remaining.Minutes} min {remaining.Seconds} sec before logging in again.",
+                            $"This account is on a 1-minute cooldown.\nPlease wait {remaining.Seconds} sec before logging in again.",
                             "Login Timeout Active"
                         );
                         blockWarning.ShowDialog();
