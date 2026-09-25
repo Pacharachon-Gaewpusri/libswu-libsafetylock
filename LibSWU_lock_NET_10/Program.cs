@@ -83,6 +83,8 @@ namespace SecureAuthApp
         private const int WM_SYSKEYDOWN = 0x0104;
         private (string Username, string Password) postData = ("admin", "exampleP@ssword"); // adjust values
         private Label lblTimerDisplay = null;
+        private string _currentLoggedInUser = null; // Stores the currently logged-in user
+        private static readonly Dictionary<string, DateTime> _blockedUsers = new(StringComparer.OrdinalIgnoreCase); // Thread-safe / case-insensitive dictionary storing users and their lockout end times
         //private System.Windows.Forms.Timer _displayTimer;
         //private Func<DateTime> _getTargetTime;
 
@@ -380,6 +382,13 @@ namespace SecureAuthApp
         }
         private void PerformLogout()
         {
+            // Apply 1-hour lockout to the user who just logged out or timed out
+            if (!string.IsNullOrEmpty(_currentLoggedInUser))
+            {
+                _blockedUsers[_currentLoggedInUser] = DateTime.Now.AddHours(1);
+                _currentLoggedInUser = null; // Reset current session user
+            }
+
             // Stop all active timers
             StopSessionTimers();
 
@@ -630,6 +639,27 @@ namespace SecureAuthApp
         }
         private async void BtnLogin_Click(object sender, EventArgs e)
         {
+            string inputUsername = txtUsername.Text.Trim();
+            // 1. Check if user is currently timed out
+            if (_blockedUsers.TryGetValue(inputUsername, out DateTime unblockTime))
+            {
+                if (inputUsername != "sc661010569") { //special tester privilege
+                    if (DateTime.Now < unblockTime)
+                    {
+                        TimeSpan remaining = unblockTime - DateTime.Now;
+                        WarningMessageBox blockWarning = new WarningMessageBox(
+                            $"This account is on a 1-hour cooldown.\nPlease wait {remaining.Minutes} min {remaining.Seconds} sec before logging in again.",
+                            "Login Timeout Active"
+                        );
+                        blockWarning.ShowDialog();
+                        return; // Block login attempt
+                    }
+                    else
+                    {
+                        _blockedUsers.Remove(inputUsername); // Lockout expired, clean up entry
+                    }
+                }
+            }
             try
             {
                 var creds = (Username: txtUsername.Text, Password: txtPassword.Text);
@@ -637,6 +667,9 @@ namespace SecureAuthApp
 
                 if (result.IsSuccess)
                 {
+                    // 2. Save current username for the logout lockout trigger
+                    _currentLoggedInUser = inputUsername;
+
                     // Temporarily unhook keyboard lock so user can use the OS
                     if (_hookID != IntPtr.Zero)
                     {
