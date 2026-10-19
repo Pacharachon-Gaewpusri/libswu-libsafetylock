@@ -643,8 +643,7 @@ namespace SecureAuthApp
             // 1. Check if user is currently timed out
             if (_blockedUsers.TryGetValue(inputUsername, out DateTime unblockTime))
             {
-                if (inputUsername != "sc661010569") { //special tester privilege
-                    if (DateTime.Now < unblockTime)
+                if (DateTime.Now < unblockTime)
                     {
                         TimeSpan remaining = unblockTime - DateTime.Now;
                         WarningMessageBox blockWarning = new WarningMessageBox(
@@ -654,11 +653,10 @@ namespace SecureAuthApp
                         blockWarning.ShowDialog();
                         return; // Block login attempt
                     }
-                    else
+                else
                     {
                         _blockedUsers.Remove(inputUsername); // Lockout expired, clean up entry
                     }
-                }
             }
             try
             {
