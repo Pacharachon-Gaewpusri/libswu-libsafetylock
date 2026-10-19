@@ -337,7 +337,7 @@ namespace SecureAuthApp
         private void UpdateCountdownText()
         {
 
-            DateTime target = DateTime.Now.AddMinutes(2); // 2 minutes from now
+            DateTime target = DateTime.Now.AddHours(3); // 3 hours from now
             TimeSpan remaining = target - DateTime.Now;
 
             if (remaining.TotalSeconds <= 0)
@@ -385,7 +385,7 @@ namespace SecureAuthApp
             // Apply 1-hour lockout to the user who just logged out or timed out
             if (!string.IsNullOrEmpty(_currentLoggedInUser))
             {
-                _blockedUsers[_currentLoggedInUser] = DateTime.Now.AddMinutes(1);
+                _blockedUsers[_currentLoggedInUser] = DateTime.Now.AddHours(1);
                 _currentLoggedInUser = null; // Reset current session user
             }
 
@@ -442,13 +442,13 @@ namespace SecureAuthApp
         private void InitializeRelockTimer()
         {
             _relockTimer = new System.Windows.Forms.Timer();
-            _relockTimer.Interval = 2 * 60 * 1000; // 2 minutes in milliseconds
+            _relockTimer.Interval = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
             _relockTimer.Tick += RelockTimer_Tick;
 
 
             // 1-minute warning timer
             _warningTimer = new System.Windows.Forms.Timer();
-            _warningTimer.Interval = 1 * 60 * 1000; // 1 minute (60,000 ms)
+            _warningTimer.Interval = 2 * 60 * 60 * 1000; // 2 hours (7,200,000 ms)
             _warningTimer.Tick += WarningTimer_Tick;
 
             // Initialize 1-second countdown update timer
@@ -458,8 +458,8 @@ namespace SecureAuthApp
         }
         private void StartSessionTimers()
         {
-            _relockTargetTime = DateTime.Now.AddMinutes(2); // Set countdown goal (2 minutes from now)
-            _warningTime = DateTime.Now.AddMinutes(1); // Set warning time (1 minute from now)
+            _relockTargetTime = DateTime.Now.AddHours(3); // Set countdown goal (3 hours from now)
+            _warningTime = DateTime.Now.AddHours(2); // Set warning time (2 hours from now)
 
             _relockTimer.Stop();
             _relockTimer.Start();
