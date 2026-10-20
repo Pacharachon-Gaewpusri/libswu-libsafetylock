@@ -754,11 +754,11 @@ namespace SecureAuthApp
         private YesNoMessageBox _LogoutTab;
         private void ConfirmLogoutBtn_Click(object sender, EventArgs e)
         {
-            var LogoutTab = new YesNoMessageBox("คุณต้องการออกจากระบบหรือไม่?\nDo you want to log out?", "Confirm Logout",() => PerformLogout());
+            var LogoutTab = new YesNoMessageBox("คุณต้องการออกจากระบบหรือไม่?\nDo you want to sign out?", "Sign Logout",() => PerformLogout());
             if (_LogoutTab == null || _LogoutTab.IsDisposed)
             {
                 // If the time checker tab is already open, bring it to the front
-                _LogoutTab = new YesNoMessageBox("คุณต้องการออกจากระบบหรือไม่?\nDo you want to log out?", "Confirm Logout", () => PerformLogout());
+                _LogoutTab = new YesNoMessageBox("คุณต้องการออกจากระบบหรือไม่?\nDo you want to sign out?", "Sign Logout", () => PerformLogout());
                 _LogoutTab.FormClosed += (s, e) => _isTabOpened = false;
                 _LogoutTab.Show();
                 _isTabOpened = true;
