@@ -144,7 +144,7 @@ namespace SecureAuthApp
             this.txtPassword = new TextBox { PasswordChar = '*', AutoSize = true };
 
             // Place labels to the left of textboxes
-            UsernameLabel = new Label { Text = "User:", AutoSize = true };
+            UsernameLabel = new Label { Text = "Buasri ID:", AutoSize = true };
             PasswordLabel = new Label { Text = "Password:", AutoSize = true };
 
             string exeDirectory = Application.StartupPath;
@@ -155,7 +155,7 @@ namespace SecureAuthApp
 
             if (File.Exists(swuPath)) { SWUicon = Image.FromFile(swuPath); }
 
-            btnLogin = new Button { Text = "Login", AutoSize = true };
+            btnLogin = new Button { Text = "Sign in", AutoSize = true };
             SWUbtn = new Button { Image = LogoutIcon, Text = "Logout", AutoSize = true, Visible = false, Enabled = true };
             ConfirmLogoutBtn = new Button { Text = "Logout?", AutoSize = true, Visible = false };
 
@@ -186,7 +186,7 @@ namespace SecureAuthApp
 
             // 1. Configure System Tray Icon & Context Menu
             trayContextMenu = new ContextMenuStrip();
-            ToolStripMenuItem confirmLogoutMenuItem = new ToolStripMenuItem("Confirm Logout?", null, ConfirmLogoutBtn_Click);
+            ToolStripMenuItem confirmLogoutMenuItem = new ToolStripMenuItem("Sign Out", null, ConfirmLogoutBtn_Click);
             ToolStripMenuItem checkTimeRemainingMenuItem = new ToolStripMenuItem("Check Time Remaining", null, CheckTimeRemainingbtn_Click);
             trayContextMenu.Items.Add(confirmLogoutMenuItem);
             trayContextMenu.Items.Add(checkTimeRemainingMenuItem);
@@ -448,7 +448,7 @@ namespace SecureAuthApp
 
             // 1-minute warning timer
             _warningTimer = new System.Windows.Forms.Timer();
-            _warningTimer.Interval = 2 * 60 * 60 * 1000; // 2 hours (7,200,000 ms)
+            _warningTimer.Interval = (5/2) * 60 * 60 * 1000; // 2.5 hours (9,000,000 ms)
             _warningTimer.Tick += WarningTimer_Tick;
 
             // Initialize 1-second countdown update timer
@@ -459,7 +459,7 @@ namespace SecureAuthApp
         private void StartSessionTimers()
         {
             _relockTargetTime = DateTime.Now.AddHours(3); // Set countdown goal (3 hours from now)
-            _warningTime = DateTime.Now.AddHours(2); // Set warning time (2 hours from now)
+            _warningTime = DateTime.Now.AddHours(2.5); // Set warning time (2 hours from now)
 
             _relockTimer.Stop();
             _relockTimer.Start();
@@ -592,7 +592,7 @@ namespace SecureAuthApp
             _warningMsgTimer = null;
             if (_warningMsgTimer == null || _warningMsgTimer.IsDisposed)
             {
-                _warningMsgTimer = new WarningMessageBox("เวลาใกล้หมด กรุณาบันทึกงานของคุณ\n Time is almost up. Please save your work.", "Warning");
+                _warningMsgTimer = new WarningMessageBox($"เหลือเวลาการใช้งาน 10 นาที \n Time Remaining: 10 minutes", "Warning");
                 _warningMsgTimer.FormClosed += (s, e) => _isTabOpened = false;
                 _warningMsgTimer.Show();
                 _isTabOpened = true;
@@ -647,7 +647,7 @@ namespace SecureAuthApp
                     {
                         TimeSpan remaining = unblockTime - DateTime.Now;
                         WarningMessageBox blockWarning = new WarningMessageBox(
-                            $"This account is on a 1-minute cooldown.\nPlease wait {remaining.Seconds} sec before logging in again.",
+                            $"This account is on a 3-hour cooldown.\nPlease wait {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2} minutes before logging in again.",
                             "Login Timeout Active"
                         );
                         blockWarning.ShowDialog();
@@ -880,7 +880,7 @@ namespace SecureAuthApp
             _getTargetTime = getTargetTime;
 
             // Window properties
-            this.Text = "Session Time Remaining";
+            this.Text = "Time Remaining";
             this.Size = new Size(400, 240);
             this.FormBorderStyle = FormBorderStyle.FixedToolWindow;
             this.StartPosition = FormStartPosition.Manual;
