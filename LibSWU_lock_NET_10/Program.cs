@@ -67,10 +67,10 @@ namespace SecureAuthApp
         private Label lblError;
         private System.Windows.Forms.Timer _relockTimer;
         private System.Windows.Forms.Timer _warningTimer; // Timer for 1-minute warning
-        private System.Windows.Forms.Timer _countdownTimer; // 1-second tick timer for UI countdown
+        private System.Windows.Forms.Timer _UpdateTimer; // 1-second tick timer for UI countdown
         private DateTime _relockTargetTime; // Stores precise end time to prevent timer drift
         private DateTime _warningTime; // Stores precise warning time
-        private bool _isStandbyMode;// Tracks current active layout state
+        private DateTime _UpdateTime; // Stores precise countdown refresh time
         public bool _isTabOpened;
         private readonly Dictionary<Control, Rectangle> _originalBounds = new();
 
@@ -85,7 +85,7 @@ namespace SecureAuthApp
         private Label lblTimerDisplay = null;
         private string _currentLoggedInUser = null; // Stores the currently logged-in user
         private static readonly Dictionary<string, DateTime> _blockedUsers = new(StringComparer.OrdinalIgnoreCase); // Thread-safe / case-insensitive dictionary storing users and their lockout end times
-        //private System.Windows.Forms.Timer _displayTimer;
+        private System.Windows.Forms.Timer _displayTimer;
         //private Func<DateTime> _getTargetTime;
 
         public LockAuthForm()
@@ -257,6 +257,7 @@ namespace SecureAuthApp
 
 
             this.Controls.Add(SWUbtn);
+            this.Controls.Add(lblTimerDisplay);
             //this.Controls.Add(CheckTimeRemainingbtn); // Added countdown button to controls
             //this.Controls.Add(ConfirmLogoutBtn);
             this.Controls.Add(_timeCheckerWindow);
@@ -392,35 +393,36 @@ namespace SecureAuthApp
         }
         private void UpdateCountdownText()
         {
-
-            //DateTime target = DateTime.Now.AddHours(3); // 3 hours from now
+            var _relockTargetTime = DateTime.Now.AddHours(3);
+            //DateTime target = _relockTargetTime; // 3 hours from now
             TimeSpan remaining = _relockTargetTime - DateTime.Now;
 
             if (remaining.TotalSeconds <= 0)
             {
                 lblTimerDisplay.Text = "Relocking System...";
                 lblTimerDisplay.ForeColor = Color.Red;
+                StopSessionTimers();
                 CloseRemainingTimeChecker_LogOut_Tab();
                 PerformLogout();
             }
             else
             {
-                lblTimerDisplay.Text = $"Time Remaining: {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                lblTimerDisplay.Text = $"Time Remaining: {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}"; // Refresh countdown display every second
             }
         }
 
-        private void CountdownTimer()
-        {
-            TimeSpan remainingTime = _relockTargetTime - DateTime.Now;
-            if (remainingTime.TotalSeconds <= 0)
-            {
-                // Time's up, reset countdown for next cycle
-                StopSessionTimers();
-                PerformLogout();
+        //private void CountdownTimer()
+        //{
+        //    TimeSpan remainingTime = _relockTargetTime - DateTime.Now;
+        //    if (remainingTime.TotalSeconds <= 0)
+        //    {
+        //        // Time's up, reset countdown for next cycle
+        //        StopSessionTimers();
+        //        PerformLogout();
 
-            }
-            // Update the countdown display on the unclickable button
-        }
+        //    }
+        //    // Update the countdown display on the unclickable button
+        //}
         private void LockoutAuthForm_Resize(object sender, EventArgs e)
         {
             // Recalculate control placement whenever window size or state changes
@@ -440,51 +442,57 @@ namespace SecureAuthApp
        
         private void InitializeRelockTimer()
         {
-            _relockTimer = new System.Windows.Forms.Timer();
-            _relockTimer.Interval = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
-            _relockTimer.Tick += RelockTimer_Tick;
+            _relockTargetTime = DateTime.Now.AddHours(3); // Set countdown goal (3 hours from now)
+            _warningTime = DateTime.Now.AddMinutes(170); // Set warning time (2.5 hours from now)
+            _UpdateTime = DateTime.Now.AddSeconds(1); // Set countdown refresh interval (1 second from now)
 
+            _relockTimer = new System.Windows.Forms.Timer();
+            _relockTimer.Interval = (int)(_relockTargetTime - DateTime.Now).TotalMilliseconds; // 3 hours in milliseconds
+            _relockTimer.Tick += RelockTimer_Tick;
 
             // 1-minute warning timer
             _warningTimer = new System.Windows.Forms.Timer();
-            _warningTimer.Interval = (5/2) * 60 * 60 * 1000; // 2.5 hours (9,000,000 ms)
+            _warningTimer.Interval = (int)(_warningTime - DateTime.Now).TotalMilliseconds; // 170 minutes in milliseconds (2 hours 50 minutes)
             _warningTimer.Tick += WarningTimer_Tick;
 
             // Initialize 1-second countdown update timer
-            _countdownTimer = new System.Windows.Forms.Timer();
-            _countdownTimer.Interval = 1 * 1 * 1000; // 1000 ms = 1 second
-            _countdownTimer.Tick += CountdownTimer_Tick;
+            _UpdateTimer = new System.Windows.Forms.Timer();
+            _UpdateTimer.Interval = (int)(_UpdateTime - DateTime.Now).TotalMilliseconds; // 1000 ms = 1 second
+            _UpdateTimer.Tick += UpdateTimer_Tick;
         }
         void StartSessionTimers()
         {
-            _relockTargetTime = DateTime.Now.AddHours(3); // Set countdown goal (3 hours from now)
-            _warningTime = DateTime.Now.AddHours(2.5); // Set warning time (2.5 hours from now)
-
             _relockTimer.Stop();
             _relockTimer.Start();
 
             _warningTimer.Stop();
             _warningTimer.Start();
 
-            _countdownTimer.Stop();
-            _countdownTimer.Start();
+            _UpdateTimer.Stop();
+            _UpdateTimer.Start();
         }
 
         private void StopSessionTimers()
         {
             _relockTimer?.Stop();
             _warningTimer?.Stop();
-            _countdownTimer?.Stop();
+            _UpdateTimer?.Stop();
         }
 
-        private void CountdownTimer_Tick(object sender, EventArgs e)
+        private void UpdateTimer_Tick(object sender, EventArgs e)
         {
-            CountdownTimer();
+            _UpdateTimer.Start(); // Reset timer for next cycle
+            UpdateCountdownText();
         }
         private void RelockTimer_Tick(object sender, EventArgs e)
         {
             _relockTimer.Start(); // Reset timer for next cycle
         }
+        //private void DisplayTimer_Tick(object sender, EventArgs e)
+        //{
+        //    UpdateCountdownText();
+        //}
+
         public class YesNoMessageBox : Form
         {
             public YesNoMessageBox(string message, string title, Action onYesClicked)
@@ -579,6 +587,7 @@ namespace SecureAuthApp
             
         }
         //ConfirmLogoutMessageBox
+
         private WarningMessageBox _warningMsgTimer;
         private void WarningTimer_Tick(object sender, EventArgs e)
         {
@@ -599,20 +608,12 @@ namespace SecureAuthApp
             }
             //MessageBox.Show("เวลาใกล้หมด กรุณาบันทึกงานของคุณ\n Time is almost up. Please save your work.");
         }
-        private void DisplayTimer_Tick(object sender, EventArgs e)
-        {
-            UpdateCountdownText();
-        }
-
         public class TimeCheckerForm : Form
         {
-            private readonly Func<DateTime> _getTargetTime;
-            private Label lblTimerDisplay;
-            private System.Windows.Forms.Timer _displayTimer;
-            public bool _isTabOpened;
+
             public TimeCheckerForm(Func<DateTime> getTargetTime)
             {
-                _getTargetTime = getTargetTime;
+                //_getTargetTime = getTargetTime;
 
                 // Window properties
                 this.Text = "Time Remaining";
@@ -626,7 +627,7 @@ namespace SecureAuthApp
                 this.ShowInTaskbar = false;
                 this.TopMost = true;
                 // Timer Label Display
-                lblTimerDisplay = new Label
+                Label lblTimerDisplay = new Label
                 {
                     Dock = DockStyle.Fill,
                     TextAlign = ContentAlignment.MiddleCenter,
@@ -636,19 +637,9 @@ namespace SecureAuthApp
                 this.Controls.Add(lblTimerDisplay);
 
                 // 1-Second Refresh Timer
-                _displayTimer = new System.Windows.Forms.Timer { Interval = 1000 };
-                _displayTimer.Tick += (s, e) => UpdateCountdownText();
-                _displayTimer.Start();
 
-                //// Cleanup on form close
-                //this.FormClosed += (s, e) =>
-                //{
-                //    _displayTimer.Stop();
-                //    _displayTimer.Dispose();
-                //    _isTabOpened = false;
-                //};
-
-                UpdateCountdownText();
+                //_UpdateTimer.Tick += (s, e) => UpdateCountdownText();
+                //_UpdateTimer.Start();
 
                 Button SignOutbtn = new Button
                 {
@@ -658,36 +649,12 @@ namespace SecureAuthApp
                     Size = new Size(400, 40),
                     ForeColor = Color.Black
                 };
-                SignOutbtn.MouseClick += (s,e) =>
-                {
-                    _displayTimer.Stop();
-                    _displayTimer.Dispose();
-
-                    // Trigger logout action in the main form
-                    ((LockAuthForm)this.Owner)?.PerformLogout();
-
-                };
+                //SignOutbtn.MouseClick += (s, e) => PerformLogout();
 
                 this.Controls.Add(SignOutbtn);
             }
-            private void UpdateCountdownText()
-            {
-                DateTime target = _getTargetTime();
-                TimeSpan remaining = target - DateTime.Now;
-
-                if (remaining.TotalSeconds <= 0)
-                {
-                    lblTimerDisplay.Text = "Relocking System...";
-                    lblTimerDisplay.ForeColor = Color.Red;
-                    _displayTimer.Stop();
-                }
-                else
-                {
-                    lblTimerDisplay.Text = $"Time Remaining: {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
-                }
-            }
-
         }
+        
         private TimeCheckerForm _timeCheckerWindow;
         //private YesNoMessageBox _LogoutTab;
 
@@ -755,7 +722,6 @@ namespace SecureAuthApp
             //        _blockedUsers.Remove(inputUsername); // Lockout expired, clean up entry
             //    }
             //}
-            TimeSpan remaining = TimeSpan.MaxValue;
             try
             {
                 var creds = (Username: txtUsername.Text, Password: txtPassword.Text);
@@ -818,6 +784,7 @@ namespace SecureAuthApp
                 // Extracts exact status code if the exception was triggered by HttpRequestException
                 if (ex is HttpRequestException httpEx && httpEx.StatusCode.HasValue)
                 {
+                    statusCode = httpEx.StatusCode.Value;
                     statusCode = httpEx.StatusCode.Value;
                 }
                 else if (ex is SocketException)
@@ -883,19 +850,6 @@ namespace SecureAuthApp
             _hookID = SetHook(_proc);
 
         }
-
-        //private void LockoutAuthForm_FormClosed(object sender, FormClosedEventArgs e)
-        //{
-        //    _relockTimer?.Stop();
-        //    _relockTimer?.Dispose();
-
-        //    if (_hookID != IntPtr.Zero)
-        //    {
-        //        UnhookWindowsHookEx(_hookID);
-        //        _hookID = IntPtr.Zero;
-        //    }
-        //}
-
         private static readonly HttpClient client = new HttpClient();
         private static async Task<(bool IsSuccess, HttpStatusCode StatusCode, string ErrorMessage)> SendAuthRequest((string Username, string Password) credentials)
         {
