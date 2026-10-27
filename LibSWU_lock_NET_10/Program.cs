@@ -59,6 +59,7 @@ namespace SecureAuthApp
         //private Button CheckTimeRemainingbtn; 
         private Button ConfirmLogoutBtn;
         private Button SWUbtn;
+        private Button LogoutBtn;
         private Image SWUicon;
         //private Image LogoutIcon;
         private Image BG;
@@ -135,7 +136,7 @@ namespace SecureAuthApp
             return "127.0.0.1";
         }
 
-        async void PerformLogout()
+        void PerformLogout()
         {
             //// Apply 1-hour lockout to the user who just logged out or timed out
             //if (!string.IsNullOrEmpty(_currentLoggedInUser))
@@ -258,6 +259,7 @@ namespace SecureAuthApp
 
             this.Controls.Add(SWUbtn);
             this.Controls.Add(lblTimerDisplay);
+            this.Controls.Add(LogoutBtn);    
             //this.Controls.Add(CheckTimeRemainingbtn); // Added countdown button to controls
             //this.Controls.Add(ConfirmLogoutBtn);
             this.Controls.Add(_timeCheckerWindow);
@@ -391,9 +393,8 @@ namespace SecureAuthApp
             InitializeRelockTimer();
 
         }
-        private void UpdateCountdownText()
+        void UpdateCountdownText()
         {
-            var _relockTargetTime = DateTime.Now.AddHours(3);
             //DateTime target = _relockTargetTime; // 3 hours from now
             TimeSpan remaining = _relockTargetTime - DateTime.Now;
 
@@ -458,7 +459,7 @@ namespace SecureAuthApp
 
             // Initialize 1-second countdown update timer
             _UpdateTimer = new System.Windows.Forms.Timer();
-            _UpdateTimer.Interval = (int)(_UpdateTime - DateTime.Now).TotalMilliseconds; // 1000 ms = 1 second
+            _UpdateTimer.Interval = 1 * 1000; // 1000 ms = 1 second
             _UpdateTimer.Tick += UpdateTimer_Tick;
         }
         void StartSessionTimers()
@@ -616,24 +617,26 @@ namespace SecureAuthApp
         }
         public class TimeCheckerForm : Form
         {
-
-            public TimeCheckerForm(Func<DateTime> getTargetTime)
+            private readonly Func<DateTime> _getTargetTime;
+            private readonly Action _logoutAction;
+            private Label lblTimerDisplay;
+            private System.Windows.Forms.Timer _displayTimer;
+            public TimeCheckerForm(Func<DateTime> getTargetTime, Action logoutAction)
             {
-                //_getTargetTime = getTargetTime;
-
+                _getTargetTime = getTargetTime;
+                _logoutAction = logoutAction;
                 // Window properties
-                this.Text = "Time Remaining";
+                this.Text = "Session Time Remaining";
                 this.Size = new Size(400, 240);
-                this.FormBorderStyle = FormBorderStyle.FixedDialog;
+                this.FormBorderStyle = FormBorderStyle.FixedToolWindow;
                 this.StartPosition = FormStartPosition.Manual;
                 this.Location = new Point(
-                    Screen.PrimaryScreen.WorkingArea.Right - this.Width,
-                    Screen.PrimaryScreen.WorkingArea.Top
+                    Screen.PrimaryScreen.WorkingArea.Right - this.Width - 10,
+                    Screen.PrimaryScreen.WorkingArea.Bottom - this.Height - 10
                 );
-                this.ShowInTaskbar = false;
                 this.TopMost = true;
                 // Timer Label Display
-                Label lblTimerDisplay = new Label
+                lblTimerDisplay = new Label
                 {
                     Dock = DockStyle.Fill,
                     TextAlign = ContentAlignment.MiddleCenter,
@@ -641,11 +644,6 @@ namespace SecureAuthApp
                     ForeColor = Color.DarkBlue
                 };
                 this.Controls.Add(lblTimerDisplay);
-
-                // 1-Second Refresh Timer
-
-                //_UpdateTimer.Tick += (s, e) => UpdateCountdownText();
-                //_UpdateTimer.Start();
 
                 Button SignOutbtn = new Button
                 {
@@ -655,10 +653,36 @@ namespace SecureAuthApp
                     Size = new Size(400, 40),
                     ForeColor = Color.Black
                 };
-                //SignOutbtn.MouseClick += (s, e) => this.PerformLogout();
+                SignOutbtn.MouseClick += (s, e) => _logoutAction?.Invoke();
 
                 this.Controls.Add(SignOutbtn);
+
+                // 1-Second Refresh Timer
+                _displayTimer = new System.Windows.Forms.Timer { Interval = 1000 };
+                _displayTimer.Tick += (s, e) => this.UpdateCountdownText();
+                _displayTimer.Start();
+
+                this.UpdateCountdownText();
+
             }
+
+            private void UpdateCountdownText()
+            {
+                DateTime target = _getTargetTime();
+                TimeSpan remaining = target - DateTime.Now;
+
+                if (remaining.TotalSeconds <= 0)
+                {
+                    lblTimerDisplay.Text = "Relocking System...";
+                    lblTimerDisplay.ForeColor = Color.Red;
+                    _displayTimer.Stop();
+                }
+                else
+                {
+                    lblTimerDisplay.Text = $"Time Remaining: {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                }
+            }
+
         }
         private TimeCheckerForm _timeCheckerWindow;
         //private YesNoMessageBox _LogoutTab;
@@ -686,7 +710,7 @@ namespace SecureAuthApp
             // Open a new window if one doesn't exist or was previously closed
            if (_timeCheckerWindow == null || _timeCheckerWindow.IsDisposed)
             {
-                _timeCheckerWindow = new TimeCheckerForm(() => _relockTargetTime);
+                _timeCheckerWindow = new TimeCheckerForm(() => _relockTargetTime, () => PerformLogout());
                 _timeCheckerWindow.FormClosed += (s, e) => _isTabOpened = false;
                 _timeCheckerWindow.Show();
             }
@@ -710,23 +734,23 @@ namespace SecureAuthApp
         {
             string inputUsername = txtUsername.Text.Trim();
             // 1. Check if user is currently timed out
-            //if (_blockedUsers.TryGetValue(inputUsername, out DateTime unblockTime))
-            //{
-            //    if (DateTime.Now < unblockTime)
-            //    {
-            //        TimeSpan remaining = unblockTime - DateTime.Now;
-            //        WarningMessageBox blockWarning = new WarningMessageBox(
-            //            $"This account is on a 3-hour cooldown.\nPlease wait {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2} minutes before logging in again.",
-            //            "Login Timeout Active"
-            //        );
-            //        blockWarning.ShowDialog();
-            //        return; // Block login attempt
-            //    }
-            //    else
-            //    {
-            //        _blockedUsers.Remove(inputUsername); // Lockout expired, clean up entry
-            //    }
-            //}
+            if (_blockedUsers.TryGetValue(inputUsername, out DateTime unblockTime))
+            {
+                if (DateTime.Now < unblockTime)
+                {
+                    TimeSpan remaining = unblockTime - DateTime.Now;
+                    WarningMessageBox blockWarning = new WarningMessageBox(
+                        $"This account is on a 3-hour cooldown.\nPlease wait {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2} minutes before logging in again.",
+                        "Login Timeout Active"
+                    );
+                    blockWarning.ShowDialog();
+                    return; // Block login attempt
+                }
+                else
+                {
+                    _blockedUsers.Remove(inputUsername); // Lockout expired, clean up entry
+                }
+            }
             try
             {
                 var creds = (Username: txtUsername.Text, Password: txtPassword.Text);
@@ -927,68 +951,5 @@ namespace SecureAuthApp
         private static extern bool DestroyIcon(IntPtr hIcon);
 
     }
-    public class TimeCheckerForm : Form
-    {
-        private readonly Func<DateTime> _getTargetTime;
-        private Label lblTimerDisplay;
-        private System.Windows.Forms.Timer _displayTimer;
-        public bool _isTabOpened;
-        public TimeCheckerForm(Func<DateTime> getTargetTime)
-        {
-            _getTargetTime = getTargetTime;
-
-            // Window properties
-            this.Text = "Session Time Remaining";
-            this.Size = new Size(400, 240);
-            this.FormBorderStyle = FormBorderStyle.FixedToolWindow;
-            this.StartPosition = FormStartPosition.Manual;
-            this.Location = new Point(
-                Screen.PrimaryScreen.WorkingArea.Right - this.Width - 10,
-                Screen.PrimaryScreen.WorkingArea.Bottom - this.Height - 10
-            );
-            this.TopMost = true;
-            // Timer Label Display
-            lblTimerDisplay = new Label
-            {
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Arial", 16, FontStyle.Bold),
-                ForeColor = Color.DarkBlue
-            };
-            this.Controls.Add(lblTimerDisplay);
-
-            // 1-Second Refresh Timer
-            _displayTimer = new System.Windows.Forms.Timer { Interval = 1000 };
-            _displayTimer.Tick += (s, e) => UpdateCountdownText();
-            _displayTimer.Start();
-
-            // Cleanup on form close
-            this.FormClosed += (s, e) =>
-            {
-                //_displayTimer.Stop();
-                //_displayTimer.Dispose();
-                _isTabOpened = false;
-            };
-            
-            UpdateCountdownText();
-        }
-
-        private void UpdateCountdownText()
-        {
-            DateTime target = _getTargetTime();
-            TimeSpan remaining = target - DateTime.Now;
-
-            if (remaining.TotalSeconds <= 0)
-            {
-                lblTimerDisplay.Text = "Relocking System...";
-                lblTimerDisplay.ForeColor = Color.Red;
-                _displayTimer.Stop();
-            }
-            else
-            {
-                lblTimerDisplay.Text = $"Time Remaining: {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
-            }
-        }
-
-    }
+    
 }
