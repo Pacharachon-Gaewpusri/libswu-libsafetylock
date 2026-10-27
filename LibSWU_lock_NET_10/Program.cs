@@ -399,16 +399,17 @@ namespace SecureAuthApp
 
             if (remaining.TotalSeconds <= 0)
             {
-                lblTimerDisplay.Text = "Relocking System...";
-                lblTimerDisplay.ForeColor = Color.Red;
-                StopSessionTimers();
-                CloseRemainingTimeChecker_LogOut_Tab();
-                PerformLogout();
+                this.PerformLogout();
             }
             else
             {
-                lblTimerDisplay.Text = $"Time Remaining: {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}"; // Refresh countdown display every second
+                string countdownText = $"Time Remaining: {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                if (lblTimerDisplay != null && !lblTimerDisplay.IsDisposed)
+                {
+                    lblTimerDisplay.Text = countdownText;
+                }
             }
+
         }
 
         //private void CountdownTimer()
@@ -439,7 +440,7 @@ namespace SecureAuthApp
 
         }
 
-       
+
         private void InitializeRelockTimer()
         {
             _relockTargetTime = DateTime.Now.AddHours(3); // Set countdown goal (3 hours from now)
@@ -482,7 +483,7 @@ namespace SecureAuthApp
         private void UpdateTimer_Tick(object sender, EventArgs e)
         {
             _UpdateTimer.Start(); // Reset timer for next cycle
-            UpdateCountdownText();
+            this.UpdateCountdownText();
         }
         private void RelockTimer_Tick(object sender, EventArgs e)
         {
@@ -608,6 +609,11 @@ namespace SecureAuthApp
             }
             //MessageBox.Show("เวลาใกล้หมด กรุณาบันทึกงานของคุณ\n Time is almost up. Please save your work.");
         }
+        private void DisplayTimer_Tick(object sender, EventArgs e)
+        {
+            UpdateCountdownText();
+          
+        }
         public class TimeCheckerForm : Form
         {
 
@@ -649,12 +655,11 @@ namespace SecureAuthApp
                     Size = new Size(400, 40),
                     ForeColor = Color.Black
                 };
-                //SignOutbtn.MouseClick += (s, e) => PerformLogout();
+                //SignOutbtn.MouseClick += (s, e) => this.PerformLogout();
 
                 this.Controls.Add(SignOutbtn);
             }
         }
-        
         private TimeCheckerForm _timeCheckerWindow;
         //private YesNoMessageBox _LogoutTab;
 
@@ -922,5 +927,68 @@ namespace SecureAuthApp
         private static extern bool DestroyIcon(IntPtr hIcon);
 
     }
-    
+    public class TimeCheckerForm : Form
+    {
+        private readonly Func<DateTime> _getTargetTime;
+        private Label lblTimerDisplay;
+        private System.Windows.Forms.Timer _displayTimer;
+        public bool _isTabOpened;
+        public TimeCheckerForm(Func<DateTime> getTargetTime)
+        {
+            _getTargetTime = getTargetTime;
+
+            // Window properties
+            this.Text = "Session Time Remaining";
+            this.Size = new Size(400, 240);
+            this.FormBorderStyle = FormBorderStyle.FixedToolWindow;
+            this.StartPosition = FormStartPosition.Manual;
+            this.Location = new Point(
+                Screen.PrimaryScreen.WorkingArea.Right - this.Width - 10,
+                Screen.PrimaryScreen.WorkingArea.Bottom - this.Height - 10
+            );
+            this.TopMost = true;
+            // Timer Label Display
+            lblTimerDisplay = new Label
+            {
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Arial", 16, FontStyle.Bold),
+                ForeColor = Color.DarkBlue
+            };
+            this.Controls.Add(lblTimerDisplay);
+
+            // 1-Second Refresh Timer
+            _displayTimer = new System.Windows.Forms.Timer { Interval = 1000 };
+            _displayTimer.Tick += (s, e) => UpdateCountdownText();
+            _displayTimer.Start();
+
+            // Cleanup on form close
+            this.FormClosed += (s, e) =>
+            {
+                //_displayTimer.Stop();
+                //_displayTimer.Dispose();
+                _isTabOpened = false;
+            };
+            
+            UpdateCountdownText();
+        }
+
+        private void UpdateCountdownText()
+        {
+            DateTime target = _getTargetTime();
+            TimeSpan remaining = target - DateTime.Now;
+
+            if (remaining.TotalSeconds <= 0)
+            {
+                lblTimerDisplay.Text = "Relocking System...";
+                lblTimerDisplay.ForeColor = Color.Red;
+                _displayTimer.Stop();
+            }
+            else
+            {
+                lblTimerDisplay.Text = $"Time Remaining: {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+            }
+        }
+
+    }
 }
