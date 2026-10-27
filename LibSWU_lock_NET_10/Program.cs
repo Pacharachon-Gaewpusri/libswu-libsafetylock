@@ -447,6 +447,7 @@ namespace SecureAuthApp
             _relockTargetTime = DateTime.Now.AddHours(3); // Set countdown goal (3 hours from now)
             _warningTime = DateTime.Now.AddMinutes(170); // Set warning time (2.5 hours from now)
             _UpdateTime = DateTime.Now.AddSeconds(1); // Set countdown refresh interval (1 second from now)
+            _unblockTime = DateTime.Now.AddHours(1); // Set user lockout duration (1 hour from now)
 
             _relockTimer = new System.Windows.Forms.Timer();
             _relockTimer.Interval = (int)(_relockTargetTime - DateTime.Now).TotalMilliseconds; // 3 hours in milliseconds
@@ -632,7 +633,7 @@ namespace SecureAuthApp
                 this.StartPosition = FormStartPosition.Manual;
                 this.Location = new Point(
                     Screen.PrimaryScreen.WorkingArea.Right - this.Width,
-                    Screen.PrimaryScreen.WorkingArea.Top + this.Height
+                    Screen.PrimaryScreen.WorkingArea.Top
                 );
                 this.TopMost = true;
                 // Timer Label Display
@@ -733,24 +734,25 @@ namespace SecureAuthApp
         private async void BtnLogin_Click(object sender, EventArgs e)
         {
             string inputUsername = txtUsername.Text.Trim();
+            unblockTime = DateTime.Now.AddHours(1); // Set user lockout duration (1 hour from now)
             // 1. Check if user is currently timed out
-            //if (_blockedUsers.TryGetValue(inputUsername, out DateTime unblockTime))
-            //{
-            //    if (DateTime.Now < unblockTime)
-            //    {
-            //        TimeSpan remaining = unblockTime - DateTime.Now;
-            //        WarningMessageBox blockWarning = new WarningMessageBox(
-            //            $"This account is on a 3-hour cooldown.\nPlease wait {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2} minutes before logging in again.",
-            //            "Login Timeout Active"
-            //        );
-            //        blockWarning.ShowDialog();
-            //        return; // Block login attempt
-            //    }
-            //    else
-            //    {
-            //        _blockedUsers.Remove(inputUsername); // Lockout expired, clean up entry
-            //    }
-            //}
+            if (_blockedUsers.TryGetValue(inputUsername, out DateTime unblockTime))
+            {
+                if (DateTime.Now < unblockTime)
+                {
+                    TimeSpan remaining = unblockTime - DateTime.Now;
+                    WarningMessageBox blockWarning = new WarningMessageBox(
+                        $"This account is on a 3-hour cooldown.\nPlease wait {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2} minutes before logging in again.",
+                        "Login Timeout Active"
+                    );
+                    blockWarning.ShowDialog();
+                    return; // Block login attempt
+                }
+                else
+                {
+                    _blockedUsers.Remove(inputUsername); // Lockout expired, clean up entry
+                }
+            }
             try
             {
                 var creds = (Username: txtUsername.Text, Password: txtPassword.Text);
