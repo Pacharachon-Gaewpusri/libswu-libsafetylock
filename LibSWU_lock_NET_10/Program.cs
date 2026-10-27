@@ -632,7 +632,7 @@ namespace SecureAuthApp
                 this.StartPosition = FormStartPosition.Manual;
                 this.Location = new Point(
                     Screen.PrimaryScreen.WorkingArea.Right - this.Width,
-                    Screen.PrimaryScreen.WorkingArea.Top - this.Height
+                    Screen.PrimaryScreen.WorkingArea.Top + this.Height
                 );
                 this.TopMost = true;
                 // Timer Label Display
