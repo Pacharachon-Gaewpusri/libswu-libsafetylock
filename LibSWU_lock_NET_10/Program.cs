@@ -227,7 +227,7 @@ namespace SecureAuthApp
             //SWUbtn.MouseDown += SWUbtn_RightClick;
             //CheckTimeRemainingbtn.MouseClick += CheckTimeRemainingbtn_Click;
             // Bind the confirmation button's click event so it functions when visible
-            //ConfirmLogoutBtn.Click += ConfirmLogoutBtn_Click;
+            ConfirmLogoutBtn.Click += ConfirmLogoutBtn_Click;
 
             // Triggers login specifically when Enter is pressed inside the password textbox
             this.txtPassword.KeyDown += (s, e) =>
@@ -388,10 +388,10 @@ namespace SecureAuthApp
             //// Add MouseDown for right-click detection
             //TrayNotiIcon.MouseDown += SWUbtn_RightClick;
             // Bind the confirmation button's click event so it functions when visible
-            //ConfirmLogoutBtn.Click += ConfirmLogoutBtn_Click;
+            ConfirmLogoutBtn.Click += ConfirmLogoutBtn_Click;
             //CheckTimeRemainingbtn.MouseClick += CheckTimeRemainingbtn_Click;
 
-            OpenRemainingTimeChecker_LogOut_Tab();
+            OpenRemainingTimeChecker_Tab();
             InitializeRelockTimer();
 
         }
@@ -624,16 +624,17 @@ namespace SecureAuthApp
             private readonly Action _logoutAction;
             private Label lblTimerDisplay;
             private System.Windows.Forms.Timer _displayTimer;
+            private YesNoMessageBox _logoutConfirmTab;
             public TimeCheckerForm(Func<DateTime> getTargetTime, Action logoutAction)
             {
                 _getTargetTime = getTargetTime;
                 _logoutAction = logoutAction;
                 // Window properties
                 this.Text = "Session Time Remaining";
-                this.Size = new Size(400, 240);
                 this.FormBorderStyle = FormBorderStyle.None;
                 this.StartPosition = FormStartPosition.Manual;
                 this.ShowInTaskbar = false;
+                this.Size = new Size(280, 70);
                 this.Location = new Point(
                     Screen.PrimaryScreen.WorkingArea.Right - this.Width,
                     Screen.PrimaryScreen.WorkingArea.Top
@@ -644,8 +645,8 @@ namespace SecureAuthApp
                 {
                     Dock = DockStyle.Fill,
                     TextAlign = ContentAlignment.MiddleCenter,
-                    Font = new Font("Arial", 16, FontStyle.Bold),
-                    ForeColor = Color.DarkBlue
+                    Font = new Font("Arial", 14, FontStyle.Bold),
+                    ForeColor = Color.DarkBlue,
                 };
                 this.Controls.Add(lblTimerDisplay);
 
@@ -654,10 +655,10 @@ namespace SecureAuthApp
                     Dock = DockStyle.Bottom,
                     TextAlign = ContentAlignment.MiddleCenter,
                     Text = "Sign Out",
-                    Size = new Size(400, 40),
+                    Height = 30,
                     ForeColor = Color.Black
                 };
-                SignOutbtn.MouseClick += (s, e) => _logoutAction?.Invoke();
+                SignOutbtn.MouseClick += SignOutbtn_Click;
 
                 this.Controls.Add(SignOutbtn);
 
@@ -669,7 +670,23 @@ namespace SecureAuthApp
                 this.UpdateCountdownText();
 
             }
-
+            private void SignOutbtn_Click(object sender, EventArgs e)
+            {
+                if (_logoutConfirmTab == null || _logoutConfirmTab.IsDisposed)
+                {
+                    _logoutConfirmTab = new YesNoMessageBox(
+                        "คุณต้องการออกจากระบบหรือไม่?\nDo you want to sign out?",
+                        "Sign Out Confirmation",
+                        () => _logoutAction?.Invoke()
+                    );
+                    _logoutConfirmTab.Show();
+                }
+                else
+                {
+                    _logoutConfirmTab.BringToFront();
+                    _logoutConfirmTab.Focus();
+                }
+            }
             private void UpdateCountdownText()
             {
                 DateTime target = _getTargetTime();
@@ -689,27 +706,27 @@ namespace SecureAuthApp
 
         }
         private TimeCheckerForm _timeCheckerWindow;
-        //private YesNoMessageBox _LogoutTab;
+        private YesNoMessageBox _LogoutTab;
 
         //private void LogoutBtn_Click(object sender, EventArgs e)
         //{
         //    var LogoutTab = new YesNoMessageBox("คุณต้องการออกจากระบบหรือไม่?\nDo you want to sign out?", "Sign Logout", () => PerformLogout());
-        //        if (_LogoutTab == null || _LogoutTab.IsDisposed)
-        //        {
-        //            // If the time checker tab is already open, bring it to the front
-        //            _LogoutTab = new YesNoMessageBox("คุณต้องการออกจากระบบหรือไม่?\nDo you want to sign out?", "Sign Logout", () => PerformLogout());
-        //            _LogoutTab.FormClosed += (s, e) => _isTabOpened = false;
-        //            _LogoutTab.Show();
-        //            _isTabOpened = true;
-        //        }
-        //        else
-        //        {
-        //            // Open the time checker tab if it's not already open
-        //            _LogoutTab.BringToFront();
-        //            _LogoutTab.Focus();
-        //        }
+        //    if (_LogoutTab == null || _LogoutTab.IsDisposed)
+        //    {
+        //        // If the time checker tab is already open, bring it to the front
+        //        _LogoutTab = new YesNoMessageBox("คุณต้องการออกจากระบบหรือไม่?\nDo you want to sign out?", "Sign Logout", () => PerformLogout());
+        //        _LogoutTab.FormClosed += (s, e) => _isTabOpened = false;
+        //        _LogoutTab.Show();
+        //        _isTabOpened = true;
+        //    }
+        //    else
+        //    {
+        //        // Open the time checker tab if it's not already open
+        //        _LogoutTab.BringToFront();
+        //        _LogoutTab.Focus();
+        //    }
         //}
-        private void OpenRemainingTimeChecker_LogOut_Tab()
+        private void OpenRemainingTimeChecker_Tab()
         {
             // Open a new window if one doesn't exist or was previously closed
            if (_timeCheckerWindow == null || _timeCheckerWindow.IsDisposed)
@@ -852,24 +869,24 @@ namespace SecureAuthApp
         //     OpenRemainingTimeChecker();
         //}
 
-        //private void ConfirmLogoutBtn_Click(object sender, EventArgs e)
-        //{
-        //    var LogoutTab = new YesNoMessageBox("คุณต้องการออกจากระบบหรือไม่?\nDo you want to sign out?", "Sign Logout",() => PerformLogout());
-        //    if (_LogoutTab == null || _LogoutTab.IsDisposed)
-        //    {
-        //        // If the time checker tab is already open, bring it to the front
-        //        _LogoutTab = new YesNoMessageBox("คุณต้องการออกจากระบบหรือไม่?\nDo you want to sign out?", "Sign Logout", () => PerformLogout());
-        //        _LogoutTab.FormClosed += (s, e) => _isTabOpened = false;
-        //        _LogoutTab.Show();
-        //        _isTabOpened = true;
-        //    }
-        //    else
-        //    {
-        //        // Open the time checker tab if it's not already open
-        //        _LogoutTab.BringToFront();
-        //        _LogoutTab.Focus();
-        //    }
-        //}
+        private void ConfirmLogoutBtn_Click(object sender, EventArgs e)
+        {
+            var LogoutTab = new YesNoMessageBox("คุณต้องการออกจากระบบหรือไม่?\nDo you want to sign out?", "Sign Logout",() => PerformLogout());
+            if (_LogoutTab == null || _LogoutTab.IsDisposed)
+            {
+                // If the time checker tab is already open, bring it to the front
+                _LogoutTab = new YesNoMessageBox("คุณต้องการออกจากระบบหรือไม่?\nDo you want to sign out?", "Sign Logout", () => PerformLogout());
+                _LogoutTab.FormClosed += (s, e) => _isTabOpened = false;
+                _LogoutTab.Show();
+                _isTabOpened = true;
+            }
+            else
+            {
+                // Open the time checker tab if it's not already open
+                _LogoutTab.BringToFront();
+                _LogoutTab.Focus();
+            }
+        }
         private void ApplyLockdownSettings()
         {
             this.FormBorderStyle = FormBorderStyle.None;
