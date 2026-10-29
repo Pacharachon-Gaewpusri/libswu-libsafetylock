@@ -632,6 +632,7 @@ namespace SecureAuthApp
                 this.Size = new Size(400, 240);
                 this.FormBorderStyle = FormBorderStyle.None;
                 this.StartPosition = FormStartPosition.Manual;
+                this.ShowInTaskbar = false;
                 this.Location = new Point(
                     Screen.PrimaryScreen.WorkingArea.Right - this.Width,
                     Screen.PrimaryScreen.WorkingArea.Top
