@@ -84,6 +84,7 @@ namespace SecureAuthApp
         private const int WM_KEYDOWN = 0x0100;
         private const int WM_SYSKEYDOWN = 0x0104;
         private (string Username, string Password) postData = ("admin", "exampleP@ssword"); // adjust values
+
         private Label lblTimerDisplay = null;
         private string _currentLoggedInUser = null; // Stores the currently logged-in user
         private static readonly Dictionary<string, DateTime> _blockedUsers = new(StringComparer.OrdinalIgnoreCase); // Thread-safe / case-insensitive dictionary storing users and their lockout end times
@@ -139,12 +140,12 @@ namespace SecureAuthApp
 
         void PerformLogout()
         {
-            //// Apply 1-hour lockout to the user who just logged out or timed out
-            //if (!string.IsNullOrEmpty(_currentLoggedInUser))
-            //{
-            //    _blockedUsers[_currentLoggedInUser] = DateTime.Now.AddHours(1);
-            //    _currentLoggedInUser = null; // Reset current session user
-            //}
+            // Apply 1-hour lockout to the user who just logged out or timed out
+            if (!string.IsNullOrEmpty(_currentLoggedInUser))
+            {
+                _blockedUsers[_currentLoggedInUser] = DateTime.Now.AddHours(1);
+                _currentLoggedInUser = null; // Reset current session user
+            }
 
             // Stop all active timers
             StopSessionTimers();
@@ -736,7 +737,7 @@ namespace SecureAuthApp
         private async void BtnLogin_Click(object sender, EventArgs e)
         {
             string inputUsername = txtUsername.Text.Trim();
-            _unblockTime = DateTime.Now.AddHours(1); // Set user lockout duration (1 hour from now)
+            //_unblockTime = DateTime.Now.AddHours(1); // Set user lockout duration (1 hour from now)
             // 1. Check if user is currently timed out
             if (_blockedUsers.TryGetValue(inputUsername, out DateTime unblockTime))
             {
