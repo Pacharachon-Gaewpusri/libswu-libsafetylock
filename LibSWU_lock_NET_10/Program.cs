@@ -72,6 +72,7 @@ namespace SecureAuthApp
         private DateTime _relockTargetTime; // Stores precise end time to prevent timer drift
         private DateTime _warningTime; // Stores precise warning time
         private DateTime _UpdateTime; // Stores precise countdown refresh time
+        private DateTime _unblockTime;
         public bool _isTabOpened;
         private readonly Dictionary<Control, Rectangle> _originalBounds = new();
 
@@ -734,7 +735,7 @@ namespace SecureAuthApp
         private async void BtnLogin_Click(object sender, EventArgs e)
         {
             string inputUsername = txtUsername.Text.Trim();
-            unblockTime = DateTime.Now.AddHours(1); // Set user lockout duration (1 hour from now)
+            _unblockTime = DateTime.Now.AddHours(1); // Set user lockout duration (1 hour from now)
             // 1. Check if user is currently timed out
             if (_blockedUsers.TryGetValue(inputUsername, out DateTime unblockTime))
             {
