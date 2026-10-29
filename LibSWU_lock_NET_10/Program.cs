@@ -70,7 +70,12 @@ namespace SecureAuthApp
         private System.Windows.Forms.Timer _countdownTimer; // 1-second tick timer for UI countdown
         private DateTime _relockTargetTime; // Stores precise end time to prevent timer drift
         private DateTime _warningTime; // Stores precise warning time
+<<<<<<< Updated upstream
         private bool _isStandbyMode;// Tracks current active layout state
+=======
+        private DateTime _UpdateTime; // Stores precise countdown refresh time
+        private DateTime _unblockTime;
+>>>>>>> Stashed changes
         public bool _isTabOpened;
         private readonly Dictionary<Control, Rectangle> _originalBounds = new();
 
@@ -599,6 +604,80 @@ namespace SecureAuthApp
         private void DisplayTimer_Tick(object sender, EventArgs e)
         {
             UpdateCountdownText();
+<<<<<<< Updated upstream
+=======
+          
+        }
+        public class TimeCheckerForm : Form
+        {
+            private readonly Func<DateTime> _getTargetTime;
+            private readonly Action _logoutAction;
+            private Label lblTimerDisplay;
+            private System.Windows.Forms.Timer _displayTimer;
+            public TimeCheckerForm(Func<DateTime> getTargetTime, Action logoutAction)
+            {
+                _getTargetTime = getTargetTime;
+                _logoutAction = logoutAction;
+                // Window properties
+                this.Text = "Session Time Remaining";
+                this.Size = new Size(400, 240);
+                this.FormBorderStyle = FormBorderStyle.None;
+                this.ShowInTaskbar = false;
+                this.StartPosition = FormStartPosition.Manual;
+                this.Location = new Point(
+                    Screen.PrimaryScreen.WorkingArea.Right - this.Width,
+                    Screen.PrimaryScreen.WorkingArea.Top
+                );
+                this.TopMost = true;
+                // Timer Label Display
+                lblTimerDisplay = new Label
+                {
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Font = new Font("Arial", 16, FontStyle.Bold),
+                    ForeColor = Color.DarkBlue
+                };
+                this.Controls.Add(lblTimerDisplay);
+
+                Button SignOutbtn = new Button
+                {
+                    Dock = DockStyle.Bottom,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Text = "Sign Out",
+                    Size = new Size(400, 40),
+                    ForeColor = Color.Black
+                };
+                SignOutbtn.MouseClick += (s, e) => _logoutAction?.Invoke();
+
+                this.Controls.Add(SignOutbtn);
+
+                // 1-Second Refresh Timer
+                _displayTimer = new System.Windows.Forms.Timer { Interval = 1000 };
+                _displayTimer.Tick += (s, e) => this.UpdateCountdownText();
+                _displayTimer.Start();
+
+                this.UpdateCountdownText();
+
+            }
+
+            private void UpdateCountdownText()
+            {
+                DateTime target = _getTargetTime();
+                TimeSpan remaining = target - DateTime.Now;
+
+                if (remaining.TotalSeconds <= 0)
+                {
+                    lblTimerDisplay.Text = "Relocking System...";
+                    lblTimerDisplay.ForeColor = Color.Red;
+                    _displayTimer.Stop();
+                }
+                else
+                {
+                    lblTimerDisplay.Text = $"Time Remaining: {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                }
+            }
+
+>>>>>>> Stashed changes
         }
         private TimeCheckerForm _timeCheckerWindow;
 
@@ -630,6 +709,29 @@ namespace SecureAuthApp
         }
         private async void BtnLogin_Click(object sender, EventArgs e)
         {
+<<<<<<< Updated upstream
+=======
+            string inputUsername = txtUsername.Text.Trim();
+            _unblockTime = DateTime.Now.AddHours(1); // Set user lockout duration (1 hour from now)
+            // 1. Check if user is currently timed out
+            if (_blockedUsers.TryGetValue(inputUsername, out DateTime unblockTime))
+            {
+                if (DateTime.Now < unblockTime)
+                {
+                    TimeSpan remaining = unblockTime - DateTime.Now;
+                    WarningMessageBox blockWarning = new WarningMessageBox(
+                        $"This account is on a 3-hour cooldown.\nPlease wait {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2} minutes before logging in again.",
+                        "Login Timeout Active"
+                    );
+                    blockWarning.ShowDialog();
+                    return; // Block login attempt
+                }
+                else
+                {
+                    _blockedUsers.Remove(inputUsername); // Lockout expired, clean up entry
+                }
+            }
+>>>>>>> Stashed changes
             try
             {
                 var creds = (Username: txtUsername.Text, Password: txtPassword.Text);
